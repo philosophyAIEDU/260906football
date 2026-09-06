@@ -1,7 +1,7 @@
 import type { MatchEngine } from "../game/MatchEngine";
 import type { Player, Vec } from "../game/types";
 import { clamp, distance, normalize } from "../game/math";
-import { difficulty } from "../ai/decisionScoring";
+import { opponentDifficulty } from "../ai/decisionScoring";
 import { audio } from "./AudioSystem";
 export function shootBall(
   g: MatchEngine,
@@ -21,7 +21,7 @@ export function shootBall(
   ).length;
   const rating = d < 18 ? p.stats.finishing : p.stats.shooting;
   const accuracy =
-    p.index === g.selected ? 1 : difficulty[g.settings.difficulty].accuracy;
+    p.index === g.selected ? 1 : opponentDifficulty(p.teamId,g.settings.team,g.settings.difficulty).accuracy;
   const error =
     ((g.random() - 0.5) *
       ((100 - rating) * 0.1 +

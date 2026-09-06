@@ -1,7 +1,7 @@
 import type { Player, Vec, TeamId, Settings } from "../game/types";
 import { formationTarget, tactics } from "./formations";
 import { clamp, distance, normalize } from "../game/math";
-import { difficulty } from "./decisionScoring";
+import { opponentDifficulty } from "./decisionScoring";
 export interface AIContext {
   players: Player[];
   ball: Vec;
@@ -30,7 +30,7 @@ export function updateTeamAI(c: AIContext) {
       if (p.index === c.selected || c.time < p.thinkAt) continue;
       p.thinkAt =
         c.time +
-        difficulty[c.settings.difficulty].interval +
+        opponentDifficulty(team,c.settings.team,c.settings.difficulty).interval +
         (p.slot % 3) * 0.02;
       if (p.slot === 0) {
         const ownGoal = -52.5 * dir;
@@ -85,7 +85,7 @@ export function updateTeamAI(c: AIContext) {
         p.ai = "chaseBall";
       } else if (own && own.teamId !== team && ranked[0]?.index === p.index) {
         p.target = {
-          x: own.pos.x + own.vel.x * 0.3,
+          x: own.pos.x + own.vel.x * 0.3 - dir*(team!==c.settings.team&&c.settings.difficulty==="easy"?2.2:0),
           z: own.pos.z + own.vel.z * 0.3,
         };
         p.ai = "pressOpponent";
@@ -104,6 +104,7 @@ export function updateTeamAI(c: AIContext) {
         p.ai = "makeRun";
       }
       if (
+        !(team!==c.settings.team&&c.settings.difficulty==="easy") &&
         !attack &&
         c.losingTeam === team &&
         c.time - c.lastLoss < 1 + tac.pressingIntensity * 3 &&

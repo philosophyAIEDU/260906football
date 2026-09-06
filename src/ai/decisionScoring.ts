@@ -2,10 +2,10 @@ import type { Player, Vec } from "../game/types";
 import { distance, dot, normalize, segmentDistance } from "../game/math";
 export const difficulty = {
   easy: {
-    interval: 0.55,
-    pressure: 0.65,
-    accuracy: 0.72,
-    keeperReaction: 0.28,
+    interval: 0.85,
+    pressure: 0.2,
+    accuracy: 0.48,
+    keeperReaction: 0.5,
   },
   normal: {
     interval: 0.3,
@@ -89,3 +89,5 @@ export function switchTarget(
       })[0]?.index ?? current
   );
 }
+
+export function opponentDifficulty(team:number,userTeam:number,level:keyof typeof difficulty){return difficulty[team===userTeam?'normal':level]}

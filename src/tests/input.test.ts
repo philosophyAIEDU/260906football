@@ -23,3 +23,5 @@ it("arrow keys control movement independently", () => {
   expect(frame.x).toBe(1);
   expect(frame.y).toBe(1);
 });
+
+it('W enables sprint without changing the movement direction',()=>{input.keys.add('KeyW');input.keys.add('ArrowRight');const frame=input.sample();expect(frame.sprint).toBe(true);expect(frame.x).toBe(1);expect(frame.y).toBe(0);input.keys.delete('KeyW');expect(input.sample().sprint).toBe(false)});

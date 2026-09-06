@@ -18,7 +18,7 @@ export function ControlsHelp() {
         <tbody>
           {[
             ["이동", "방향키 ↑ ↓ ← →", "왼쪽 스틱"],
-            ["전력 질주", "Shift", "RB"],
+            ["전력 질주", "W (또는 Shift)", "RB"],
             ["패스", "S", "A"],
 
             ["롱킥", "A", "X"],

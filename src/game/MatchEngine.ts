@@ -20,7 +20,7 @@ import { emptyStats } from "../systems/StatisticsSystem";
 import { formationTarget, tactics } from "../ai/formations";
 import { updateTeamAI, aiDirection } from "../ai/TeamAI";
 import {
-  difficulty,
+  opponentDifficulty,
   passScore,
   shotScore,
   switchTarget,
@@ -646,6 +646,7 @@ export class MatchEngine {
           : ["chaseBall", "makeRun", "pressOpponent", "receivePass"].includes(
               p.ai,
             ) && p.energy > 20;
+      if(p.teamId!==this.settings.team&&this.settings.difficulty==="easy"&&p.ai==="pressOpponent")sprint=false;
       if (
         p.index === this.selected &&
         frame.press &&
@@ -758,7 +759,7 @@ export class MatchEngine {
         enemyOwner.teamId !== p.teamId &&
         distance(p.pos, enemyOwner.pos) < 1.6 &&
         p.cooldown <= 0 &&
-        this.random() < dt * 0.8 * difficulty[this.settings.difficulty].pressure
+        this.random() < dt * 0.8 * opponentDifficulty(p.teamId,this.settings.team,this.settings.difficulty).pressure
       )
         tackle(this, p, false);
     }
@@ -861,7 +862,7 @@ export class MatchEngine {
         this.ball.y < 2.6
       ) {
         const reaction =
-          difficulty[this.settings.difficulty].keeperReaction *
+          opponentDifficulty(t.teamId,this.settings.team,this.settings.difficulty).keeperReaction *
           (1.2 - (t.stats.goalkeeping ?? 70) * 0.003);
         if (this.time - this.touchAt < reaction) continue;
         const backpass = this.pendingPass?.team === t.teamId;
@@ -869,7 +870,7 @@ export class MatchEngine {
         if (
           this.shot &&
           this.random() >
-            0.5 + (t.stats.goalkeeping ?? 70) * 0.004 - speed * 0.004
+            0.5 + (t.stats.goalkeeping ?? 70) * 0.004 - speed * 0.004 - (t.teamId!==this.settings.team&&this.settings.difficulty==="easy"?.24:0)
         ) {
           t.cooldown = 0.45;
           t.dive = 0.4;

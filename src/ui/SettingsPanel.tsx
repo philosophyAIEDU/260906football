@@ -11,6 +11,7 @@ export function SettingsPanel() {
     audio.update(next);
     match.settings = {
       ...match.settings,
+      difficulty:next.difficulty,
       formation: next.formation,
       tactic: next.tactic,
       offside: next.offside,
@@ -24,7 +25,7 @@ export function SettingsPanel() {
   return (
     <div>
       <h2>경기 설정</h2>
-      <div className="settings-grid">
+      <div className="settings-grid"><label>경기 난이도<select value={s.difficulty} onChange={e=>set({difficulty:e.target.value as Settings["difficulty"]})}><option value="easy">쉬움 · 압박 완화</option><option value="normal">보통</option><option value="hard">어려움</option></select></label>
         <label>
           포메이션
           <select

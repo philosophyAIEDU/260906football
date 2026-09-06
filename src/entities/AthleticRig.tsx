@@ -7,7 +7,7 @@ import { teams } from "../data/teams";
 // Shared geometry keeps twenty-two articulated players inexpensive.
 const sphere = new THREE.SphereGeometry(1, 20, 16);
 const cylinder = new THREE.CylinderGeometry(1, 1, 1, 16);
-const boot = new THREE.SphereGeometry(1, 10, 8);
+
 const skinColors = ["#c69876", "#76503b", "#deb495", "#a97150"];
 export function AthleticRig({
   index,
@@ -177,14 +177,7 @@ export function AthleticRig({
           castShadow
           geometry={humanGeometry.torso}
           material={materials.shirt}
-          scale={[0.205, 0.48, 0.125]}
-        />
-        <mesh
-          castShadow
-          geometry={sphere}
-          material={materials.shirt}
-          position={[0, 0.22, 0]}
-          scale={[0.23, 0.115, 0.13]}
+          scale={[0.185, 0.48, 0.105]}
         />
         <mesh
           geometry={sphere}
@@ -200,46 +193,46 @@ export function AthleticRig({
         />
         {p.teamId === 0 ? (
           [-0.11, 0.11].map((x) => (
-            <mesh key={x} position={[x, 0.015, 0.126]}>
+            <mesh key={x} position={[x, 0.015, 0.107]}>
               <planeGeometry args={[0.045, 0.38]} />
               <meshStandardMaterial color="#e9f2ff" roughness={0.92} />
             </mesh>
           ))
         ) : (
-          <mesh position={[0, 0.1, 0.13]}>
+          <mesh position={[0, 0.1, 0.107]}>
             <planeGeometry args={[0.37, 0.075]} />
             <meshStandardMaterial color="#f0e9dd" roughness={0.9} />
           </mesh>
         )}
-        <mesh position={[0.105, 0.145, 0.134]}>
+        <mesh position={[0.105, 0.145, 0.108]}>
           <circleGeometry args={[0.026, 5]} />
           <meshStandardMaterial color="#f4d47c" />
         </mesh>
-        <mesh position={[0, 0.035, -0.128]} rotation={[0, Math.PI, 0]}>
+        <mesh position={[0, 0.035, -0.108]} rotation={[0, Math.PI, 0]}>
           <planeGeometry args={[0.31, 0.35]} />
           <meshStandardMaterial map={number} roughness={0.9} />
         </mesh>
       </group>
       <mesh
         castShadow
-        geometry={sphere}
+        geometry={humanGeometry.pelvis}
         material={materials.shorts}
         position={[0, 0.963, 0]}
-        scale={[0.184, 0.13, 0.132]}
+        scale={[0.17, 0.105, 0.112]}
       />
       <group ref={head} position={[0, 1.695, 0.005]}>
         <mesh
           castShadow
           geometry={humanGeometry.head}
           material={materials.skin}
-          scale={[0.109, 0.139, 0.105]}
+          scale={[0.092, 0.125, 0.095]}
         />
         <mesh
           castShadow
-          geometry={sphere}
+          geometry={humanGeometry.hair}
           material={materials.hair}
-          position={[0, 0.078, -0.015]}
-          scale={[0.111, 0.078, 0.103]}
+          position={[0, 0.075, -0.014]}
+          scale={[0.095, 0.056, 0.094]}
         />
         <mesh
           geometry={sphere}
@@ -272,28 +265,28 @@ export function AthleticRig({
               geometry={cylinder}
               material={materials.shorts}
               position={[0, -0.075, 0]}
-              scale={[0.103, 0.22, 0.107]}
+              scale={[0.086, 0.22, 0.091]}
             />
             <mesh
               castShadow
               geometry={humanGeometry.thigh}
               material={materials.skin}
               position={[0, -0.27, 0]}
-              scale={[0.077, 0.23, 0.083]}
+              scale={[0.066, 0.23, 0.07]}
             />
             <group ref={knees[i]} position={[0, -0.435, 0]}>
               <mesh
                 castShadow
                 geometry={sphere}
                 material={materials.skin}
-                scale={[0.068, 0.073, 0.07]}
+                scale={[0.054, 0.057, 0.056]}
               />
               <mesh
                 castShadow
                 geometry={humanGeometry.calf}
                 material={materials.socks}
                 position={[0, -0.22, 0]}
-                scale={[0.06, 0.235, 0.065]}
+                scale={[0.048, 0.235, 0.054]}
               />
               <mesh
                 geometry={cylinder}
@@ -303,26 +296,26 @@ export function AthleticRig({
               />
               <mesh
                 castShadow
-                geometry={boot}
+                geometry={humanGeometry.shoe}
                 material={materials.boots}
                 position={[0, -0.456, 0.07]}
                 scale={[0.073, 0.058, 0.145]}
               />
               <mesh
-                geometry={boot}
+                geometry={humanGeometry.shoe}
                 material={materials.sole}
                 position={[0, -0.491, 0.073]}
                 scale={[0.073, 0.018, 0.142]}
               />
             </group>
           </group>
-          <group ref={shoulders[i]} position={[side * 0.237, 1.46, 0]}>
+          <group ref={shoulders[i]} position={[side * 0.204, 1.425, 0]}>
             <mesh
               castShadow
-              geometry={sphere}
+              geometry={humanGeometry.sleeve}
               material={materials.shirt}
               position={[side * 0.025, -0.065, 0]}
-              scale={[0.088, 0.126, 0.087]}
+              scale={[0.067, 0.11, 0.068]}
             />
             <mesh
               castShadow
@@ -341,7 +334,7 @@ export function AthleticRig({
               />
               <mesh
                 castShadow
-                geometry={sphere}
+                geometry={humanGeometry.hand}
                 material={keeper ? materials.trim : materials.skin}
                 position={[0, -0.265, 0.006]}
                 scale={[0.047, 0.073, 0.033]}

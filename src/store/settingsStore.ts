@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 import type { Settings } from "../game/types";
 export const defaults: Settings = {
   team: 0,
-  difficulty: "normal",
+  difficulty: "easy",
   halfMinutes: 5,
   formation: "4-3-3",
   tactic: "balanced",

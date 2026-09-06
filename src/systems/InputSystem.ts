@@ -3,6 +3,7 @@ export const keyboardAction = (code: string) =>
   ({ KeyS: "Space", KeyD: "KeyF", KeyA: "KeyQ", Space: "Tab" })[code] ?? code;
 const handled = [
   "Space",
+  "KeyW",
   "KeyS",
   "KeyD",
   "KeyA",
@@ -78,7 +79,7 @@ class InputSystem {
     const has = (...k: string[]) => k.some((x) => this.keys.has(x));
     let x = Number(has("ArrowRight")) - Number(has("ArrowLeft")),
       y = Number(has("ArrowUp")) - Number(has("ArrowDown"));
-    let sprint = has("ShiftLeft", "ShiftRight"),
+    let sprint = has("KeyW", "ShiftLeft", "ShiftRight"),
       protect = false,
       press = false,
       teammatePress = false,

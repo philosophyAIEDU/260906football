@@ -1,3 +1,4 @@
+import {useSettings} from "../store/settingsStore";
 import { CameraControls } from "./CameraControls";
 import { useMatch } from "../store/matchStore";
 import { match } from "../game/MatchEngine";
@@ -5,6 +6,7 @@ import { teams } from "../data/teams";
 import { MiniMap } from "./MiniMap";
 export function MatchHUD() {
   const s = useMatch();
+  const {update}=useSettings();
   const p = match.players[s.selected],
     attack =
       s.owner !== null && match.players[s.owner].teamId === match.settings.team;
@@ -19,7 +21,7 @@ export function MatchHUD() {
   );
   return (
     <div className="hud">
-      <CameraControls />
+      <CameraControls /><label className="live-difficulty">난이도<select aria-label="경기 난이도" value={match.settings.difficulty} onChange={e=>{const difficulty=e.target.value as "easy"|"normal"|"hard";match.settings.difficulty=difficulty;update({difficulty});match.uiAt=0;match.publish()}}><option value="easy">쉬움</option><option value="normal">보통</option><option value="hard">어려움</option></select></label>
       <div className="live-bug">
         <b>TE</b>
         <span>LIVE MATCH</span>
@@ -115,7 +117,7 @@ export function MatchHUD() {
           <kbd>A</kbd> 롱킥
         </span>
         <span>
-          <kbd>Shift</kbd> 달리기
+          <kbd>W</kbd> 빨리 달리기
         </span>
         <span>
           <kbd>Space</kbd> 선수 전환</span><span><kbd>C</kbd> 카메라

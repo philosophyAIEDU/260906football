@@ -1164,3 +1164,4 @@ input[type="range"] {
     right: 12px;
   }
 }
+.live-difficulty{position:absolute;left:28px;top:84px;pointer-events:auto;display:flex;flex-direction:row;gap:8px;align-items:center;background:#15344cd9;padding:6px 10px;border-radius:4px;font-size:.8rem}.live-difficulty select{width:90px;padding:5px;font-size:.8rem}@media(max-width:700px){.live-difficulty{left:12px;top:68px}}
