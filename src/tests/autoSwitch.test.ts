@@ -1,0 +1,14 @@
+import {it,expect} from 'vitest';
+import {createPlayers} from '../data/teams';
+import {nearbyController} from '../systems/AutoSwitchSystem';
+import {keyboardAction} from '../systems/InputSystem';
+import {humanGeometry} from '../entities/humanGeometry';
+const scene=()=>{const p=createPlayers();p.forEach(t=>t.pos={x:30,z:25});p[9].pos={x:10,z:0};p[6].pos={x:2,z:0};return p};
+const ball={x:0,y:.11,z:0},velocity={x:0,y:0,z:0};
+it('selects nearby teammate before possession',()=>expect(nearbyController(scene(),0,9,ball,velocity,null,null,new Set())).toBe(6));
+it('keeps current control when distance advantage is small',()=>{const p=scene();p[9].pos.x=2.5;expect(nearbyController(p,0,9,ball,velocity,null,null,new Set())).toBe(9)});
+it('ignores offside and sent off candidates',()=>{const p=scene();expect(nearbyController(p,0,9,ball,velocity,null,null,new Set([6]))).toBe(9);p[6].red=true;expect(nearbyController(p,0,9,ball,velocity,null,null,new Set())).toBe(9)});
+it('does not switch while opponent owns the ball',()=>expect(nearbyController(scene(),0,9,ball,velocity,12,null,new Set())).toBe(9));
+it('does not switch toward a distant ball',()=>{const p=scene();p[6].pos.x=7;expect(nearbyController(p,0,9,ball,velocity,null,null,new Set())).toBe(9)});
+it('maps Space to manual switching and S to passing',()=>{expect(keyboardAction('Space')).toBe('Tab');expect(keyboardAction('KeyS')).toBe('Space')});
+it('anatomical meshes have outward facing front normals',()=>{for(const g of Object.values(humanGeometry)){const normal=g.getAttribute('normal');const width=25;expect(normal.getZ(width*3)).toBeGreaterThan(0)}});

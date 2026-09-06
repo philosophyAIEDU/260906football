@@ -1,3 +1,4 @@
+import {nearbyController} from "../systems/AutoSwitchSystem";
 import type {
   Settings,
   MatchPhase,
@@ -59,6 +60,7 @@ export class MatchEngine {
   stats: [TeamStats, TeamStats] = [emptyStats(), emptyStats()];
   events: MatchEvent[] = [];
   selected = 9;
+  switchLockedUntil=0;
   owner: number | null = null;
   lastTouch = 9;
   ball: Vec3 = { x: 0, y: BALL_RADIUS, z: 0 };
@@ -142,6 +144,7 @@ export class MatchEngine {
     this.stats[1] = emptyStats();
     this.events = [];
     this.selected = settings.team * 11 + 9;
+    this.switchLockedUntil=0;
     this.owner = null;
     this.lastTouch = 9;
     this.restart = null;
@@ -369,6 +372,7 @@ export class MatchEngine {
     const p = this.players[this.selected];
     if (!p || p.red) return;
     if (key === "Tab") {
+      this.switchLockedUntil=this.time+1.5;
       this.selected = switchTarget(
         this.players,
         this.settings.team,
@@ -586,6 +590,7 @@ export class MatchEngine {
       );
       this.spin *= 1 - dt * 0.5;
     }
+    if(this.time>=this.switchLockedUntil&&this.owner===null){const next=nearbyController(this.players,this.settings.team,this.selected,this.ball,this.ballVelocity,this.owner,this.receiver,this.offside);if(next!==this.selected){this.selected=next;this.uiAt=0;this.switchLockedUntil=this.time+.65;}}
     for (const a of frame.actions)
       this.handleAction(
         a.key,

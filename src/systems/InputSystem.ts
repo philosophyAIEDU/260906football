@@ -1,7 +1,8 @@
 import type { Action, InputFrame } from "../game/types";
 export const keyboardAction = (code: string) =>
-  ({ KeyS: "Space", KeyD: "KeyF", KeyA: "KeyQ" })[code] ?? code;
+  ({ KeyS: "Space", KeyD: "KeyF", KeyA: "KeyQ", Space: "Tab" })[code] ?? code;
 const handled = [
+  "Space",
   "KeyS",
   "KeyD",
   "KeyA",

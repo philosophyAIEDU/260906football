@@ -2,10 +2,11 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { match } from "../game/MatchEngine";
+import {humanGeometry} from "./humanGeometry";
 import { teams } from "../data/teams";
 // Shared geometry keeps twenty-two articulated players inexpensive.
-const sphere = new THREE.SphereGeometry(1, 12, 10);
-const cylinder = new THREE.CylinderGeometry(1, 1, 1, 10);
+const sphere = new THREE.SphereGeometry(1, 20, 16);
+const cylinder = new THREE.CylinderGeometry(1, 1, 1, 16);
 const boot = new THREE.SphereGeometry(1, 10, 8);
 const skinColors = ["#c69876", "#76503b", "#deb495", "#a97150"];
 export function AthleticRig({
@@ -101,7 +102,7 @@ export function AthleticRig({
     if (!active) return;
     const speed = Math.hypot(player.vel.x, player.vel.z),
       run = Math.min(1, speed / 5.5);
-    clock.current += dt * (3.5 + speed * 1.75);
+    clock.current += dt * speed * 2.4;
     const phase = clock.current;
     const action = player.actionTime > 0;
     const kick =
@@ -132,20 +133,21 @@ export function AthleticRig({
     for (let i = 0; i < 2; i++) {
       const wave = phase + i * Math.PI;
       const stride = Math.sin(wave);
+      const blend=1-Math.exp(-dt*14);
       if (hips[i].current)
-        hips[i].current!.rotation.x =
+        hips[i].current!.rotation.x = THREE.MathUtils.lerp(hips[i].current!.rotation.x,
           kick && i === 1
             ? -0.95
             : slide
               ? i === 0
                 ? -0.9
                 : 0.35
-              : stride * run * 0.75;
+              : stride * run * 0.65,blend);
       if (knees[i].current)
-        knees[i].current!.rotation.x =
+        knees[i].current!.rotation.x = THREE.MathUtils.lerp(knees[i].current!.rotation.x,
           kick && i === 1
             ? 0.18
-            : Math.max(0, -Math.cos(wave)) * run * 1.35 + 0.075;
+            : Math.max(0, -Math.cos(wave)) * run * 1.1 + 0.045,blend);
       if (shoulders[i].current) {
         shoulders[i].current!.rotation.x = -stride * run * 0.6;
         shoulders[i].current!.rotation.z = celebrate
@@ -173,7 +175,7 @@ export function AthleticRig({
       <group position={[0, 1.24, 0]}>
         <mesh
           castShadow
-          geometry={cylinder}
+          geometry={humanGeometry.torso}
           material={materials.shirt}
           scale={[0.205, 0.48, 0.125]}
         />
@@ -228,7 +230,7 @@ export function AthleticRig({
       <group ref={head} position={[0, 1.695, 0.005]}>
         <mesh
           castShadow
-          geometry={sphere}
+          geometry={humanGeometry.head}
           material={materials.skin}
           scale={[0.109, 0.139, 0.105]}
         />
@@ -274,7 +276,7 @@ export function AthleticRig({
             />
             <mesh
               castShadow
-              geometry={sphere}
+              geometry={humanGeometry.thigh}
               material={materials.skin}
               position={[0, -0.27, 0]}
               scale={[0.077, 0.23, 0.083]}
@@ -288,7 +290,7 @@ export function AthleticRig({
               />
               <mesh
                 castShadow
-                geometry={sphere}
+                geometry={humanGeometry.calf}
                 material={materials.socks}
                 position={[0, -0.22, 0]}
                 scale={[0.06, 0.235, 0.065]}
@@ -324,7 +326,7 @@ export function AthleticRig({
             />
             <mesh
               castShadow
-              geometry={sphere}
+              geometry={humanGeometry.upperArm}
               material={materials.skin}
               position={[side * 0.027, -0.18, 0]}
               scale={[0.057, 0.15, 0.06]}
@@ -332,7 +334,7 @@ export function AthleticRig({
             <group ref={elbows[i]} position={[side * 0.027, -0.3, 0]}>
               <mesh
                 castShadow
-                geometry={sphere}
+                geometry={humanGeometry.forearm}
                 material={materials.skin}
                 position={[0, -0.12, 0]}
                 scale={[0.045, 0.142, 0.047]}

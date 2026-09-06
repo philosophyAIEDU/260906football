@@ -118,12 +118,12 @@ export function MatchHUD() {
           <kbd>Shift</kbd> 달리기
         </span>
         <span>
-          <kbd>C</kbd> 카메라
+          <kbd>Space</kbd> 선수 전환</span><span><kbd>C</kbd> 카메라
         </span>
         <span>
           <kbd>Esc</kbd> 일시 정지
         </span>
-        <small>우리 팀이 공을 받으면 자동 전환</small>
+        <small>공 가까운 선수 자동 전환 · Space로 직접 전환</small>
       </div>
     </div>
   );
