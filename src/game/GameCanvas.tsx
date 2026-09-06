@@ -60,23 +60,25 @@ export function GameCanvas() {
     <Canvas
       shadows={quality !== "low"}
       dpr={quality === "low" ? 1 : [1, quality === "high" ? 1.75 : 1.3]}
-      camera={{ position: [62, 51, 68], fov: 49, near: 0.1, far: 280 }}
+      camera={{ position: [36, 29, 43], fov: 43, near: 0.1, far: 280 }}
       gl={{ antialias: quality !== "low", powerPreference: "high-performance" }}
     >
-      <color attach="background" args={["#a9c5d4"]} />
-      <fog attach="fog" args={["#b9cfdb", 115, 245]} />
-      <hemisphereLight args={["#e2efff", "#667950", 2.1]} />
+      <color attach="background" args={["#a9cbdc"]} />
+      <fog attach="fog" args={["#bdd1d7", 145, 260]} />
+      <hemisphereLight args={["#e8f2ff", "#435b25", 1.35]} />
       <directionalLight
-        position={[-35, 65, 30]}
-        intensity={2.8}
+        position={[-26, 55, -32]}
+        intensity={2.4}
         castShadow={quality !== "low"}
-        shadow-mapSize={quality === "high" ? 2048 : 1024}
+        shadow-mapSize={quality === "high" ? 4096 : 2048}
         shadow-camera-left={-72}
         shadow-camera-right={72}
         shadow-camera-top={55}
         shadow-camera-bottom={-55}
         shadow-camera-far={180}
-        shadow-bias={-0.0003}
+        shadow-bias={-0.00012}
+        shadow-normalBias={0.025}
+        shadow-radius={2}
       />
       <Suspense fallback={null}>
         <Physics gravity={[0, -9.81, 0]} timeStep={1 / 60} paused={paused}>

@@ -12,8 +12,8 @@ export function CameraSystem() {
     const p = match.players[match.selected];
     const menu = match.phase === "menu";
     if (menu) {
-      target.set(2, 0, 0);
-      position.set(62, 51, 68);
+      target.set(9, 0, 0);
+      position.set(36, 29, 43);
     } else {
       const x = clamp(
           match.ball.x * 0.7 + p.pos.x * 0.3 + match.ballVelocity.x * 0.12,
@@ -32,11 +32,11 @@ export function CameraSystem() {
         );
       } else if (match.cameraMode === 0) {
         const wide = clamp(
-          Math.hypot(match.ballVelocity.x, match.ballVelocity.z) * 0.25,
+          Math.hypot(match.ballVelocity.x, match.ballVelocity.z) * 0.17,
           0,
           8,
         );
-        position.set(x + 3, 42 + wide, z + 47 + wide);
+        position.set(x + 2, 27 + wide, z + 31 + wide);
       } else if (match.cameraMode === 1) {
         const dir = match.dir(p.teamId);
         position.set(p.pos.x - dir * 12, 8, p.pos.z + 5);

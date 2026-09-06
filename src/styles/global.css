@@ -912,3 +912,168 @@ input[type="range"] {
   border-left: 3px solid #e8b763;
   margin-bottom: 12px;
 }
+/* Broadcast presentation: keep the pitch and athletes in the foreground. */
+.scoreboard {
+  left: 28px;
+  top: 24px;
+  transform: none;
+  height: 48px;
+  box-shadow: 0 3px 10px #172d2538;
+  border-radius: 5px;
+  background: #f2f5ed;
+  color: #203c4d;
+}
+.team-tag {
+  font-size: 1.32rem;
+  padding: 0 17px;
+  border-bottom-width: 3px;
+}
+.scoreboard strong {
+  background: linear-gradient(150deg, #21608f, #143756);
+  color: #fff;
+  font-size: 1.8rem;
+  min-width: 88px;
+}
+.scoreboard i {
+  color: #8dabbd;
+  font-size: 1.3rem;
+}
+.clock {
+  background: #eff3e9;
+  color: #203c4d;
+  border-left: 5px solid #1b507e;
+  padding: 0 16px;
+  min-width: 92px;
+}
+.clock small {
+  color: #61777f;
+  font-size: 0.65rem;
+}
+.live-bug {
+  left: auto;
+  right: 87px;
+  top: 32px;
+}
+.live-bug b {
+  background: transparent;
+  color: #fff;
+  font-size: 1.4rem;
+  border: 1px solid #ffffff8a;
+  transform: none;
+  line-height: 1;
+}
+.live-bug span {
+  font-weight: 600;
+  font-size: 0.65rem;
+}
+.pause-icon {
+  background: linear-gradient(#286591, #164364);
+  border: 1px solid #9fc4d480;
+  box-shadow: 0 3px 10px #142a3430;
+  border-radius: 6px;
+}
+.player-panel {
+  background: linear-gradient(90deg, #13374ad9, #13374a90);
+  border-left: 3px solid #62efaa;
+  bottom: 25px;
+  padding: 10px 13px;
+  width: 280px;
+}
+.player-number {
+  font-size: 1.8rem;
+}
+.player-details strong {
+  text-shadow: 0 1px 2px #12252a;
+}
+.stamina-track {
+  height: 3px;
+}
+.minimap {
+  opacity: 0.78;
+  width: 185px;
+  height: 120px;
+  bottom: 22px;
+}
+.quick-controls {
+  background: linear-gradient(110deg, #1439459c, #14394548);
+  border: 1px solid #b5d2d52b;
+  bottom: 24px;
+  gap: 8px;
+}
+.quick-controls > span {
+  color: #73edb0;
+}
+.notice {
+  border-bottom-color: #64e9a5;
+  box-shadow: 0 8px 35px #15332433;
+  background: #14394de6;
+}
+.menu {
+  background: linear-gradient(
+    90deg,
+    #071c29f5 0%,
+    #0c273be6 27%,
+    #0c273b65 52%,
+    transparent 80%
+  );
+}
+.menu-panel {
+  background: transparent;
+}
+.venue {
+  bottom: 10%;
+}
+.venue b {
+  font-size: 3rem;
+}
+.menu-top .edition {
+  background: #173e52a0;
+}
+.goal-notice {
+  background: linear-gradient(110deg, #133b53f0, #164961e0);
+  border-bottom: 4px solid #70f1b1;
+}
+.goal-notice strong {
+  font-family: "Barlow Condensed", "Noto Sans KR", sans-serif;
+  letter-spacing: 0.015em;
+}
+@media (max-width: 700px) {
+  .scoreboard {
+    left: 12px;
+    top: 14px;
+    height: 43px;
+  }
+  .team-tag {
+    padding: 0 10px;
+    font-size: 1.1rem;
+  }
+  .scoreboard strong {
+    min-width: 70px;
+    font-size: 1.55rem;
+  }
+  .clock {
+    min-width: 71px;
+    padding: 0 9px;
+  }
+  .pause-icon {
+    right: 12px;
+    top: 14px;
+    width: 39px;
+    height: 39px;
+  }
+  .player-panel {
+    width: 225px;
+    bottom: 15px;
+  }
+  .minimap {
+    width: 140px;
+    height: 91px;
+    bottom: 15px;
+  }
+  .quick-controls {
+    bottom: 123px;
+  }
+  .live-bug {
+    display: none;
+  }
+}

@@ -2,17 +2,49 @@ import { useEffect, useMemo, useState } from "react";
 import { assetConfig } from "../data/assets";
 import * as THREE from "three";
 function Mark({ points }: { points: [number, number][] }) {
-  const geometry = useMemo(
-    () =>
-      new THREE.BufferGeometry().setFromPoints(
-        points.map(([x, z]) => new THREE.Vector3(x, 0.028, z)),
-      ),
-    [points],
-  );
+  const geometry = useMemo(() => {
+    const vertices: number[] = [];
+    for (let i = 0; i < points.length; i += 2) {
+      const [ax, az] = points[i],
+        [bx, bz] = points[i + 1];
+      const length = Math.hypot(bx - ax, bz - az) || 1;
+      const dx = (-(bz - az) / length) * 0.055,
+        dz = ((bx - ax) / length) * 0.055;
+      vertices.push(
+        ax + dx,
+        0.018,
+        az + dz,
+        bx + dx,
+        0.018,
+        bz + dz,
+        ax - dx,
+        0.018,
+        az - dz,
+        ax - dx,
+        0.018,
+        az - dz,
+        bx + dx,
+        0.018,
+        bz + dz,
+        bx - dx,
+        0.018,
+        bz - dz,
+      );
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+    g.computeVertexNormals();
+    return g;
+  }, [points]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
   return (
-    <lineSegments geometry={geometry}>
-      <lineBasicMaterial color="#e9f0dd" />
-    </lineSegments>
+    <mesh geometry={geometry} receiveShadow>
+      <meshStandardMaterial
+        color="#f1f0da"
+        roughness={1}
+        side={THREE.DoubleSide}
+      />
+    </mesh>
   );
 }
 const rectangle = (
@@ -80,24 +112,47 @@ export function Pitch() {
   }, []);
   const texture = useMemo(() => {
     const canvas = document.createElement("canvas");
-    canvas.width = canvas.height = 256;
+    canvas.width = canvas.height = 1024;
     const ctx = canvas.getContext("2d")!;
-    ctx.fillStyle = "#699451";
-    ctx.fillRect(0, 0, 256, 256);
-    let seed = 1;
-    for (let i = 0; i < 19000; i++) {
+    ctx.fillStyle = "#66952c";
+    ctx.fillRect(0, 0, 1024, 1024);
+    let seed = 3187;
+    const random = () => {
       seed = (seed * 16807) % 2147483647;
-      const x = seed % 256;
-      seed = (seed * 16807) % 2147483647;
-      ctx.fillStyle = i % 2 ? "rgba(20,60,17,.12)" : "rgba(180,195,105,.1)";
-      ctx.fillRect(x, seed % 256, 1, 2);
+      return seed / 2147483647;
+    };
+    for (let i = 0; i < 240000; i++) {
+      const x = random() * 1024,
+        y = random() * 1024;
+      const shade = random();
+      ctx.strokeStyle =
+        shade > 0.5
+          ? `rgba(166,191,73,${0.1 + random() * 0.22})`
+          : `rgba(38,76,16,${0.12 + random() * 0.25})`;
+      ctx.lineWidth = 0.5 + random();
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + (random() - 0.5) * 3, y - 1 - random() * 5);
+      ctx.stroke();
+    }
+    for (let i = 0; i < 200; i++) {
+      const x = random() * 1024,
+        y = random() * 1024,
+        r = 8 + random() * 35;
+      const gradient = ctx.createRadialGradient(x, y, 0, x, y, r);
+      gradient.addColorStop(0, "rgba(184,173,72,.045)");
+      gradient.addColorStop(1, "rgba(184,173,72,0)");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(x - r, y - r, r * 2, r * 2);
     }
     const t = new THREE.CanvasTexture(canvas);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.repeat.set(25, 16);
+    t.repeat.set(16, 10);
+    t.anisotropy = 8;
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
   }, []);
+  useEffect(() => () => texture.dispose(), [texture]);
   return (
     <group>
       <mesh
@@ -106,11 +161,16 @@ export function Pitch() {
         position={[0, -0.025, 0]}
       >
         <planeGeometry args={[132, 94]} />
-        <meshStandardMaterial color="#427748" roughness={1} />
+        <meshStandardMaterial color="#497a29" roughness={1} />
       </mesh>
       <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[105, 68]} />
-        <meshStandardMaterial map={custom ?? texture} roughness={1} />
+        <meshStandardMaterial
+          map={custom ?? texture}
+          bumpMap={custom ?? texture}
+          bumpScale={0.025}
+          roughness={0.96}
+        />
       </mesh>
       {Array.from({ length: 10 }, (_, i) => (
         <mesh
@@ -121,9 +181,9 @@ export function Pitch() {
         >
           <planeGeometry args={[5.25, 68]} />
           <meshStandardMaterial
-            color="#8ca958"
+            color="#b3c756"
             transparent
-            opacity={0.18}
+            opacity={0.09}
             roughness={1}
           />
         </mesh>
