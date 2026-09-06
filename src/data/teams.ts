@@ -1,0 +1,110 @@
+import type { Player, PlayerPosition, PlayerStats } from "../game/types";
+export const teams = [
+  {
+    name: "Royal Blue FC",
+    short: "ROY",
+    city: "ROYAL BLUE",
+    color: "#2467ee",
+    dark: "#142e6b",
+    pattern: "stripe",
+  },
+  {
+    name: "Crimson United",
+    short: "CRU",
+    city: "CRIMSON",
+    color: "#e6414c",
+    dark: "#601c30",
+    pattern: "band",
+  },
+] as const;
+const roles: PlayerPosition[] = [
+  "GK",
+  "LB",
+  "LCB",
+  "RCB",
+  "RB",
+  "CDM",
+  "LCM",
+  "RCM",
+  "LW",
+  "ST",
+  "RW",
+];
+const names = [
+  [
+    "이하준",
+    "강도윤",
+    "서지호",
+    "윤태오",
+    "박시우",
+    "한도현",
+    "정유찬",
+    "민서준",
+    "노이안",
+    "차로운",
+    "송은우",
+  ],
+  [
+    "Leon Vale",
+    "Milo Reed",
+    "Theo Ash",
+    "Noah Stone",
+    "Evan Lake",
+    "Finn Cole",
+    "Alex North",
+    "Luca Hart",
+    "Kai Rowan",
+    "Rio West",
+    "Jude Frost",
+  ],
+];
+export function createPlayers(): Player[] {
+  return [0, 1].flatMap((team) =>
+    roles.map((position, slot) => {
+      const base = 68 + ((slot * 7 + team * 3) % 18);
+      const stats: PlayerStats = {
+        speed: base + 4,
+        acceleration: base,
+        stamina: 84,
+        strength: base,
+        agility: base,
+        balance: 80,
+        passing: base,
+        crossing: base,
+        shooting: base,
+        finishing: base,
+        control: 85,
+        dribbling: base,
+        heading: base,
+        tackling: base,
+        positioning: base,
+        goalkeeping: position === "GK" ? 80 : undefined,
+      };
+      return {
+        id: `${team}-${slot}`,
+        index: team * 11 + slot,
+        teamId: team as 0 | 1,
+        slot,
+        name: names[team][slot],
+        shirtNumber: [1, 3, 4, 5, 2, 6, 8, 10, 11, 9, 7][slot],
+        position,
+        pos: { x: 0, z: 0 },
+        vel: { x: 0, z: 0 },
+        target: { x: 0, z: 0 },
+        angle: team === 0 ? Math.PI / 2 : -Math.PI / 2,
+        energy: 100,
+        stats,
+        ai: "holdPosition",
+        animation: position === "GK" ? "GoalkeeperIdle" : "Idle",
+        actionTime: 0,
+        cooldown: 0,
+        thinkAt: slot * 0.025,
+        yellow: 0,
+        red: false,
+        goals: 0,
+        assists: 0,
+        dive: 0,
+      };
+    }),
+  );
+}
