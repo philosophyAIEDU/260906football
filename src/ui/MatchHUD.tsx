@@ -1,3 +1,4 @@
+import { CameraControls } from "./CameraControls";
 import { useMatch } from "../store/matchStore";
 import { match } from "../game/MatchEngine";
 import { teams } from "../data/teams";
@@ -18,6 +19,7 @@ export function MatchHUD() {
   );
   return (
     <div className="hud">
+      <CameraControls />
       <div className="live-bug">
         <b>TE</b>
         <span>LIVE MATCH</span>
@@ -52,7 +54,7 @@ export function MatchHUD() {
           </small>
           <strong>{s.notice}</strong>
           {["kickoff", "setPiece"].includes(s.phase) && (
-            <span>준비 후 Space 패스 · F 슛</span>
+            <span>준비 후 S 패스 · D 슛 · A 롱킥</span>
           )}
         </div>
       )}
@@ -99,20 +101,29 @@ export function MatchHUD() {
         )}
       </div>
       <MiniMap />
-      <div className="quick-controls">
-        <span>{attack ? "공격" : "수비"}</span>
-        <div>
-          <kbd>Space</kbd>
-          {attack ? "패스" : "압박"} <kbd>F</kbd>
-          {attack ? "슛" : "슬라이딩"}
-        </div>
-        <div>
-          <kbd>Tab</kbd>선수 전환 <kbd>C</kbd>카메라
-        </div>
-        <small>
-          {Math.round(s.fps)} FPS ·{" "}
-          {["방송 중계", "선수 시점", "전술 시점"][match.cameraMode]}
-        </small>
+      <div className="simple-controls">
+        <span>
+          <kbd>↑ ↓ ← →</kbd> 이동
+        </span>
+        <span>
+          <kbd>S</kbd> 패스
+        </span>
+        <span>
+          <kbd>D</kbd> {attack ? "슛" : "태클"} <small>공 없으면 태클</small>
+        </span>
+        <span>
+          <kbd>A</kbd> 롱킥
+        </span>
+        <span>
+          <kbd>Shift</kbd> 달리기
+        </span>
+        <span>
+          <kbd>C</kbd> 카메라
+        </span>
+        <span>
+          <kbd>Esc</kbd> 일시 정지
+        </span>
+        <small>우리 팀이 공을 받으면 자동 전환</small>
       </div>
     </div>
   );

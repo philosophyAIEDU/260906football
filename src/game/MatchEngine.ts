@@ -27,7 +27,12 @@ import {
 import { SpatialIndex } from "../ai/spatialIndex";
 import { cameraRelative, clamp, distance, normalize } from "./math";
 import { movePlayer } from "../entities/playerMovement";
-import { boundary, halfExpired, nextHalf } from "../systems/RulesSystem";
+import {
+  BALL_RADIUS,
+  boundary,
+  halfExpired,
+  nextHalf,
+} from "../systems/RulesSystem";
 import { passBall } from "../systems/PassingSystem";
 import { shootBall } from "../systems/ShootingSystem";
 import { tackle } from "../systems/TacklingSystem";
@@ -56,9 +61,9 @@ export class MatchEngine {
   selected = 9;
   owner: number | null = null;
   lastTouch = 9;
-  ball: Vec3 = { x: 0, y: 0.22, z: 0 };
+  ball: Vec3 = { x: 0, y: BALL_RADIUS, z: 0 };
   ballVelocity: Vec3 = { x: 0, y: 0, z: 0 };
-  previousBall: Vec3 = { x: 0, y: 0.22, z: 0 };
+  previousBall: Vec3 = { x: 0, y: BALL_RADIUS, z: 0 };
   body: BallBody | null = null;
   restart: Restart | null = null;
   timer = 0;
@@ -117,7 +122,7 @@ export class MatchEngine {
     this.body = body;
     this.resetBall(this.ball);
   }
-  resetBall(spot: Vec, y = 0.24) {
+  resetBall(spot: Vec, y = BALL_RADIUS + 0.02) {
     this.ball = { ...spot, y };
     this.previousBall = { ...this.ball };
     this.ballVelocity = { x: 0, y: 0, z: 0 };
@@ -303,7 +308,7 @@ export class MatchEngine {
     this.body?.setLinvel(velocity, true);
     this.ballVelocity = { ...velocity };
     this.body?.setAngvel(
-      { x: velocity.z / 0.22, y: 0, z: -velocity.x / 0.22 },
+      { x: velocity.z / BALL_RADIUS, y: 0, z: -velocity.x / BALL_RADIUS },
       true,
     );
   }
@@ -337,6 +342,10 @@ export class MatchEngine {
     }
     this.lastOwnerTeam = p.teamId;
     this.owner = p.index;
+    if (p.teamId === this.settings.team) {
+      this.selected = p.index;
+      this.uiAt = 0;
+    }
     this.ownedSince = this.time;
     this.lastTouch = p.index;
     if (this.protectedRestart && this.protectedRestart.taker !== p.index)

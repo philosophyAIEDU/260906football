@@ -80,7 +80,11 @@ export function Player({ player: p }: { player: PlayerData }) {
       energy.current.position.x = -(1 - current.energy / 100) * 0.35;
     }
   });
-  const fallback = <AthleticRig index={p.index} uniform={uniform} />;
+  const fallback = (
+    <group scale={1.04}>
+      <AthleticRig index={p.index} uniform={uniform} />
+    </group>
+  );
   return (
     <>
       <RigidBody

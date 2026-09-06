@@ -1,4 +1,5 @@
 import { beforeAll, describe, it, expect, vi } from "vitest";
+import { BALL_RADIUS } from "../systems/RulesSystem";
 import RAPIER from "@dimforge/rapier3d-compat";
 vi.mock("../systems/AudioSystem", () => ({
   audio: { play: vi.fn(), start: vi.fn(), update: vi.fn() },
@@ -41,13 +42,13 @@ function setup() {
     }
   const ball = world.createRigidBody(
     RAPIER.RigidBodyDesc.dynamic()
-      .setTranslation(0, 0.24, 0)
+      .setTranslation(0, BALL_RADIUS + 0.02, 0)
       .setCcdEnabled(true)
       .setLinearDamping(0.08)
       .setAngularDamping(0.4),
   );
   world.createCollider(
-    RAPIER.ColliderDesc.ball(0.22)
+    RAPIER.ColliderDesc.ball(BALL_RADIUS)
       .setMass(0.43)
       .setFriction(0.6)
       .setRestitution(0.42),

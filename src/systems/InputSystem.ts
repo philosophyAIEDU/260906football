@@ -1,22 +1,16 @@
 import type { Action, InputFrame } from "../game/types";
+export const keyboardAction = (code: string) =>
+  ({ KeyS: "Space", KeyD: "KeyF", KeyA: "KeyQ" })[code] ?? code;
 const handled = [
-  "KeyW",
-  "KeyA",
   "KeyS",
   "KeyD",
+  "KeyA",
   "ArrowUp",
   "ArrowDown",
   "ArrowLeft",
   "ArrowRight",
   "ShiftLeft",
   "ShiftRight",
-  "Space",
-  "KeyE",
-  "KeyQ",
-  "KeyF",
-  "KeyZ",
-  "KeyX",
-  "KeyR",
   "Tab",
   "KeyC",
   "Escape",
@@ -41,8 +35,9 @@ class InputSystem {
       e.preventDefault();
       if (e.repeat) return;
       this.keys.add(e.code);
-      if (charged.includes(e.code)) this.started.set(e.code, performance.now());
-      else this.queue.push({ key: e.code, power: 0.35 });
+      if (charged.includes(keyboardAction(e.code)))
+        this.started.set(e.code, performance.now());
+      else this.queue.push({ key: keyboardAction(e.code), power: 0.35 });
     };
     const up = (e: KeyboardEvent) => {
       if (!handled.includes(e.code)) return;
@@ -50,7 +45,7 @@ class InputSystem {
       this.keys.delete(e.code);
       if (this.started.has(e.code)) {
         this.queue.push({
-          key: e.code,
+          key: keyboardAction(e.code),
           power: Math.min(
             1.4,
             (performance.now() - this.started.get(e.code)!) / 850 + 0.14,
@@ -80,13 +75,12 @@ class InputSystem {
   }
   sample(): InputFrame {
     const has = (...k: string[]) => k.some((x) => this.keys.has(x));
-    let x =
-        Number(has("KeyD", "ArrowRight")) - Number(has("KeyA", "ArrowLeft")),
-      y = Number(has("KeyW", "ArrowUp")) - Number(has("KeyS", "ArrowDown"));
+    let x = Number(has("ArrowRight")) - Number(has("ArrowLeft")),
+      y = Number(has("ArrowUp")) - Number(has("ArrowDown"));
     let sprint = has("ShiftLeft", "ShiftRight"),
-      protect = has("KeyR"),
-      press = has("Space"),
-      teammatePress = has("KeyQ"),
+      protect = false,
+      press = false,
+      teammatePress = false,
       aimX = 0,
       aimY = 0;
     this.power = 0;

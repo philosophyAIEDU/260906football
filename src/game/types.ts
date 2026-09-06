@@ -149,6 +149,8 @@ export interface Settings {
   effectsVolume: number;
   muted: boolean;
   camera: 0 | 1 | 2;
+  cameraDistance?: number;
+  cameraHeight?: number;
   shake: boolean;
 }
 export interface TeamStats {

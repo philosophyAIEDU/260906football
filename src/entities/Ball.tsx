@@ -5,6 +5,7 @@ import {
   type RapierRigidBody,
 } from "@react-three/rapier";
 import { match } from "../game/MatchEngine";
+import { BALL_RADIUS } from "../systems/RulesSystem";
 import * as THREE from "three";
 export function Ball() {
   const ref = useRef<RapierRigidBody>(null);
@@ -46,7 +47,7 @@ export function Ball() {
     <RigidBody
       ref={ref}
       colliders={false}
-      position={[0, 0.24, 0]}
+      position={[0, BALL_RADIUS + 0.02, 0]}
       linearDamping={0.08}
       angularDamping={0.4}
       ccd
@@ -54,13 +55,13 @@ export function Ball() {
       canSleep
     >
       <BallCollider
-        args={[0.22]}
+        args={[BALL_RADIUS]}
         mass={0.43}
         friction={0.6}
         restitution={0.42}
       />
       <mesh castShadow>
-        <sphereGeometry args={[0.22, 20, 14]} />
+        <sphereGeometry args={[BALL_RADIUS, 20, 14]} />
         <meshStandardMaterial map={texture} roughness={0.72} />
       </mesh>
     </RigidBody>

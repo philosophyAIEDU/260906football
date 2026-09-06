@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { match } from "../game/MatchEngine";
+import { useSettings } from "../store/settingsStore";
 import { clamp } from "../game/math";
 export function CameraSystem() {
   const target = useMemo(() => new THREE.Vector3(), []),
@@ -44,6 +45,14 @@ export function CameraSystem() {
       } else {
         position.set(x, 76, z + 16);
       }
+    }
+    if (!menu && match.phase !== "goal") {
+      const settings = useSettings.getState().settings;
+      const distance = settings.cameraDistance ?? 1;
+      position.x = target.x + (position.x - target.x) * distance;
+      position.z = target.z + (position.z - target.z) * distance;
+      position.y =
+        target.y + (position.y - target.y) * (settings.cameraHeight ?? 1);
     }
     camera.position.lerp(position, 1 - Math.exp(-dt * (menu ? 2 : 3)));
     look.lerp(target, 1 - Math.exp(-dt * 5));

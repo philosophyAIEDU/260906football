@@ -199,3 +199,34 @@ describe("discipline and direct restarts", () => {
     expect(g.restart?.kind).toBe("goalKick");
   });
 });
+
+describe("automatic controlled player switching", () => {
+  it("switches immediately to a home teammate receiving the ball", () => {
+    const g = game();
+    g.selected = 9;
+    g.acquire(g.players[6]);
+    expect(g.selected).toBe(6);
+    expect(g.owner).toBe(6);
+  });
+  it("does not switch to opponents", () => {
+    const g = game();
+    g.selected = 9;
+    g.acquire(g.players[15]);
+    expect(g.selected).toBe(9);
+  });
+  it("supports the away team and its goalkeeper", () => {
+    const g = game();
+    g.settings.team = 1;
+    g.selected = 20;
+    g.acquire(g.players[11]);
+    expect(g.selected).toBe(11);
+  });
+  it("does not switch to an offside receiver", () => {
+    const g = game();
+    g.selected = 6;
+    g.offside.add(9);
+    g.acquire(g.players[9]);
+    expect(g.selected).toBe(6);
+    expect(g.owner).toBeNull();
+  });
+});

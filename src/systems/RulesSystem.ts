@@ -1,5 +1,5 @@
 import type { Vec3, TeamId, RestartKind, Player, Vec } from "../game/types";
-export const BALL_RADIUS = 0.22;
+export const BALL_RADIUS = 0.11;
 export type Boundary =
   | { kind: "goal"; team: TeamId }
   | { kind: RestartKind; team: TeamId; spot: Vec };

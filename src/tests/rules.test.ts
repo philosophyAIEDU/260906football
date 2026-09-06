@@ -35,7 +35,7 @@ describe("whole-ball boundaries", () => {
       boundary({ x: 52, y: 2.4, z: 0 }, { x: 53, y: 2.4, z: 0 }, 0, 1)?.kind,
     ).toBe("goalKick");
     expect(
-      boundary({ x: 52, y: 1, z: 3.55 }, { x: 53, y: 1, z: 3.55 }, 0, 1)?.kind,
+      boundary({ x: 52, y: 1, z: 3.6 }, { x: 53, y: 1, z: 3.6 }, 0, 1)?.kind,
     ).toBe("goalKick");
   });
   it("uses the crossing point for fast balls", () =>
