@@ -3,7 +3,7 @@ import { regions, FRONT, BACK } from "./playerBody";
 import { teams } from "../data/teams";
 import { assetConfig } from "../data/assets";
 import type { Player } from "../game/types";
-const SIZE = 512;
+const SIZE = 640;
 /** Optional shirt artwork from public/assets, painted over the torso panel. */
 const overlays: (HTMLImageElement | null)[] = [null, null];
 let overlayLoad: Promise<void> | null = null;
@@ -30,10 +30,23 @@ function variant(index: number) {
   const hairs = ["#1d1712", "#2f2118", "#0f1113", "#4a3221", "#6d5334"];
   const boots = ["#f2e14a", "#f4f6f2", "#ff6a3d", "#16d0c0", "#1b1d21"];
   const seed = (index * 2654435761) >>> 0;
+  const spread = (shift: number, low: number, high: number) =>
+    low + (((seed >>> shift) % 100) / 100) * (high - low);
   return {
     skin: skins[seed % skins.length],
     hair: hairs[(seed >>> 4) % hairs.length],
     boot: boots[(seed >>> 8) % boots.length],
+    brow: spread(2, 0.7, 1.35),
+    nose: spread(6, 0.88, 1.18),
+    lips: spread(10, 0.82, 1.2),
+    jawShadow: spread(14, 0, 1) > 0.55 ? 0.3 : 0,
+    hairline: spread(16, 0.79, 0.87),
+    eyeGap: spread(20, 0.048, 0.062),
+    /** Head size and squash, applied to the head bone. */
+    headScale: [spread(22, 0.95, 1.04), spread(24, 0.96, 1.05)] as [
+      number,
+      number,
+    ],
     /** Height multiplier, roughly 1.74 m to 1.88 m against a 1.80 m base. */
     height: 0.967 + (((seed >>> 12) % 100) / 100) * 0.077,
     build: 0.95 + (((seed >>> 18) % 100) / 100) * 0.12,
@@ -218,8 +231,9 @@ export function createKitTexture(player: Player): {
     ctx.fillStyle = shade(kit.gloves, -0.22);
     ctx.fillRect(arm.x, arm.y + arm.h * 0.06, arm.w, 4);
   }
-  blot(ctx, arm, 0, 0.02, 0.5, 0.03, dark, 0.35); // shoulder root
-  blot(ctx, arm, FRONT, 0.44, 0.16, 0.03, dark, 0.3); // inner elbow
+  blot(ctx, arm, 0, 0.04, 0.16, 0.06, dark, 0.45); // inner arm against the ribs
+  blot(ctx, arm, 0, 0.02, 0.5, 0.02, dark, 0.3); // shoulder root
+  blot(ctx, arm, FRONT, 0.44, 0.16, 0.03, dark, 0.28); // inner elbow
   grain(ctx, arm, 0.06, 613 + player.index);
   // ---- thigh, knee, socks ---------------------------------------------
   const leg = rect(regions.leg);
@@ -235,96 +249,263 @@ export function createKitTexture(player: Player): {
   ctx.fillRect(leg.x, at(leg, 0, bands.sockTop)[1], leg.w, 7);
   ctx.fillStyle = shade(kit.socks, -0.16);
   ctx.fillRect(leg.x, at(leg, 0, 1)[1], leg.w, leg.h * 0.05);
-  blot(ctx, leg, 0, 0.03, 0.4, 0.03, dark, 0.4); // groin side
+  blot(ctx, leg, 0, 0.06, 0.16, 0.08, dark, 0.55); // inner thigh, in shadow
+  blot(ctx, leg, 0, 0.22, 0.13, 0.09, dark, 0.4);
+  blot(ctx, leg, 0, 0.4, 0.1, 0.08, dark, 0.26);
   blot(ctx, leg, BACK, 0.52, 0.2, 0.04, dark, 0.28); // back of the knee
+  blot(ctx, leg, 0.5, 0.3, 0.1, 0.16, "rgba(255,246,232,0.5)", 0.16); // outer light
   grain(ctx, leg, 0.07, 227 + player.index);
   // ---- face --------------------------------------------------------------
+  // Features are laid out in metres and converted, because the head panel is
+  // roughly twice as resolved along the skull as it is around it.
   const head = rect(regions.head);
+  const around = head.w / 0.575; // pixels per metre around the skull
+  const along = head.h / 0.336; // pixels per metre up the skull
+  const level = (y: number) => (y - 1.47) / 0.336;
+  const wide = (metres: number) => (metres * around) / 2;
+  const tall = (metres: number) => (metres * along) / 2;
+  const turn = (metres: number) => metres / 0.575;
   ctx.fillStyle = look.skin;
   ctx.fillRect(head.x, head.y, head.w, head.h);
-  blot(ctx, head, FRONT, 0.12, 0.3, 0.09, dark, 0.5); // under the jaw
-  blot(ctx, head, BACK, 0.86, 0.4, 0.14, "rgba(20,14,10,0.6)", 0.35);
-  ctx.fillStyle = shade(look.hair, 0.02); // hairline, dipping at the peak
-  ctx.fillRect(head.x, at(head, 0, 1)[1], head.w, head.h * 0.2);
+  blot(ctx, head, FRONT, level(1.5), 0.3, 0.08, dark, 0.55); // under the jaw
+  blot(ctx, head, BACK, 0.9, 0.4, 0.12, "rgba(20,14,10,0.6)", 0.3);
+  for (const side of [-1, 1]) {
+    // Temple and cheek hollow.
+    blot(
+      ctx,
+      head,
+      FRONT + side * 0.088,
+      level(1.62),
+      0.05,
+      0.055,
+      "rgba(60,32,18,0.5)",
+      0.3,
+    );
+    // Ear, painted where the skull carries its small lateral bulge.
+    const ear = 0.25 + side * 0.25;
+    blot(ctx, head, ear, level(1.66), 0.028, 0.05, "rgba(58,30,16,0.45)", 0.55);
+    ctx.fillStyle = shade(look.skin, 0.05);
+    ctx.beginPath();
+    ctx.ellipse(
+      ...at(head, ear, level(1.662)),
+      wide(0.022),
+      tall(0.032),
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+    ctx.fillStyle = shade(look.skin, -0.16);
+    ctx.beginPath();
+    ctx.ellipse(
+      ...at(head, ear, level(1.658)),
+      wide(0.011),
+      tall(0.018),
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+  }
+  if (look.jawShadow) {
+    // Stubble across the jaw and top lip.
+    ctx.save();
+    ctx.globalAlpha = look.jawShadow;
+    ctx.fillStyle = look.hair;
+    ctx.beginPath();
+    ctx.ellipse(
+      ...at(head, FRONT, level(1.592)),
+      wide(0.115),
+      tall(0.055),
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.fillStyle = shade(look.hair, 0.02); // scalp, dipping at the peak
+  ctx.fillRect(head.x, at(head, 0, 1)[1], head.w, head.h * (1 - look.hairline));
   ctx.beginPath();
   ctx.ellipse(
-    ...at(head, FRONT, 0.8),
+    ...at(head, FRONT, look.hairline),
     head.w * 0.115,
-    head.h * 0.04,
+    head.h * 0.035,
     0,
     0,
     Math.PI,
   );
   ctx.fill();
+  ctx.save();
+  ctx.globalAlpha = 0.75;
   for (const side of [-1, 1]) {
-    // Sideburn down the temple.
-    const [x, y] = at(head, FRONT + side * 0.105, 0.8);
-    ctx.fillRect(x - 3, y, 6, head.h * 0.115);
+    const [x, y] = at(head, FRONT + side * 0.098, look.hairline);
+    ctx.fillRect(x - wide(0.008), y, wide(0.016), tall(0.032));
   }
+  ctx.restore();
+  blot(ctx, head, FRONT, look.hairline - 0.012, 0.14, 0.016, "rgba(0,0,0,0.5)", 0.22);
   for (const side of [-1, 1]) {
-    const t = FRONT + side * 0.048;
-    ctx.fillStyle = "rgba(34,24,17,0.26)"; // socket
-    ctx.beginPath();
-    ctx.ellipse(...at(head, t, 0.694), 8, 4.6, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#efeadf"; // sclera
-    ctx.beginPath();
-    ctx.ellipse(...at(head, t, 0.688), 4.6, 2.4, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#4a3320"; // iris
-    ctx.beginPath();
-    ctx.arc(...at(head, t, 0.688), 2.4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#140f0a";
-    ctx.beginPath();
-    ctx.arc(...at(head, t, 0.688), 1.1, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "rgba(28,19,13,0.45)"; // upper lid
-    ctx.beginPath();
-    ctx.ellipse(...at(head, t, 0.6975), 5, 1.7, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = shade(look.hair, -0.02); // brow
+    const t = FRONT + side * turn(look.eyeGap);
+    ctx.fillStyle = "rgba(38,24,15,0.3)"; // socket
     ctx.beginPath();
     ctx.ellipse(
-      ...at(head, t, 0.742),
-      7,
-      1.7,
-      side * 0.16,
-      0,
-      Math.PI * 2,
-    );
-    ctx.fill();
-  }
-  ctx.fillStyle = shade(look.skin, -0.1); // nose sides and tip shadow
-  for (const side of [-1, 1]) {
-    const [x, y] = at(head, FRONT + side * 0.022, 0.55);
-    ctx.fillRect(x - 1, y, 2, head.h * 0.055);
-  }
-  ctx.beginPath();
-  ctx.ellipse(...at(head, FRONT, 0.478), 6.5, 2.6, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = shade(look.skin, -0.34); // nostrils
-  for (const side of [-1, 1]) {
-    ctx.beginPath();
-    ctx.ellipse(
-      ...at(head, FRONT + side * 0.017, 0.492),
-      1.7,
-      1.1,
+      ...at(head, t, level(1.7)),
+      wide(0.036),
+      tall(0.024),
       0,
       0,
       Math.PI * 2,
     );
     ctx.fill();
+    ctx.fillStyle = "#eee8dc"; // sclera
+    ctx.beginPath();
+    ctx.ellipse(
+      ...at(head, t, level(1.699)),
+      wide(0.028),
+      tall(0.0115),
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+    ctx.fillStyle = "#493322"; // iris
+    ctx.beginPath();
+    ctx.ellipse(
+      ...at(head, t, level(1.699)),
+      wide(0.0125),
+      tall(0.0115),
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+    ctx.fillStyle = "#150f09";
+    ctx.beginPath();
+    ctx.ellipse(
+      ...at(head, t, level(1.699)),
+      wide(0.006),
+      tall(0.0055),
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.75)"; // catch light
+    ctx.beginPath();
+    ctx.ellipse(
+      ...at(head, t - side * 0.004, level(1.7015)),
+      wide(0.004),
+      tall(0.0035),
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+    ctx.fillStyle = "rgba(32,20,13,0.5)"; // upper lid
+    ctx.beginPath();
+    ctx.ellipse(
+      ...at(head, t, level(1.7035)),
+      wide(0.03),
+      tall(0.007),
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+    ctx.fillStyle = shade(look.skin, -0.06); // lower lid
+    ctx.beginPath();
+    ctx.ellipse(
+      ...at(head, t, level(1.6945)),
+      wide(0.028),
+      tall(0.004),
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+    // Brows read as paint if they are hard edged, so build them from a few
+    // translucent passes that fade at the tail.
+    for (let pass = 0; pass < 3; pass++) {
+      ctx.save();
+      ctx.globalAlpha = 0.34;
+      ctx.fillStyle = shade(look.hair, 0.03);
+      ctx.beginPath();
+      ctx.ellipse(
+        ...at(head, t - side * pass * 0.004, level(1.7205 + pass * 0.0006)),
+        wide((0.03 - pass * 0.004) * look.brow),
+        tall((0.0075 - pass * 0.0012) * look.brow),
+        side * 0.1,
+        0,
+        Math.PI * 2,
+      );
+      ctx.fill();
+      ctx.restore();
+    }
   }
-  ctx.fillStyle = shade(look.skin, -0.3); // mouth line
+  ctx.fillStyle = shade(look.skin, -0.1); // bridge shading
+  for (const side of [-1, 1]) {
+    const [x, y] = at(head, FRONT + side * turn(0.014 * look.nose), level(1.69));
+    ctx.fillRect(x - 1, y, 2, tall(0.05));
+  }
+  ctx.fillStyle = shade(look.skin, -0.13); // nose base shadow
   ctx.beginPath();
-  ctx.ellipse(...at(head, FRONT, 0.404), 8, 1.2, 0, 0, Math.PI * 2);
+  ctx.ellipse(
+    ...at(head, FRONT, level(1.6395)),
+    wide(0.03 * look.nose),
+    tall(0.012),
+    0,
+    0,
+    Math.PI * 2,
+  );
   ctx.fill();
-  ctx.fillStyle = shade(look.skin, 0.05); // lower lip catch light
+  ctx.fillStyle = shade(look.skin, -0.4); // nostrils
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(
+      ...at(head, FRONT + side * turn(0.011 * look.nose), level(1.638)),
+      wide(0.008),
+      tall(0.005),
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+  }
+  ctx.fillStyle = shade(look.skin, -0.24); // upper lip
   ctx.beginPath();
-  ctx.ellipse(...at(head, FRONT, 0.386), 6.5, 1.6, 0, 0, Math.PI * 2);
+  ctx.ellipse(
+    ...at(head, FRONT, level(1.6095)),
+    wide(0.046 * look.lips),
+    tall(0.009 * look.lips),
+    0,
+    0,
+    Math.PI * 2,
+  );
   ctx.fill();
-  grain(ctx, head, 0.028, 401 + player.index);
+  ctx.fillStyle = shade(look.skin, -0.34); // mouth line
+  ctx.beginPath();
+  ctx.ellipse(
+    ...at(head, FRONT, level(1.606)),
+    wide(0.048 * look.lips),
+    tall(0.003),
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+  ctx.fillStyle = shade(look.skin, 0.04); // lower lip
+  ctx.beginPath();
+  ctx.ellipse(
+    ...at(head, FRONT, level(1.6015)),
+    wide(0.04 * look.lips),
+    tall(0.008 * look.lips),
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+  blot(ctx, head, FRONT, level(1.588), 0.06, 0.02, "rgba(60,34,18,0.5)", 0.35);
+  grain(ctx, head, 0.022, 401 + player.index);
   // ---- hair and boots --------------------------------------------------
   const hair = rect(regions.hair);
   ctx.fillStyle = look.hair;

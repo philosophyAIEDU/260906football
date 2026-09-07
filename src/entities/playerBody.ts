@@ -105,11 +105,6 @@ const shaped = (...parts: Modulate[]): Modulate =>
         for (const part of parts) sum += part(a);
         return sum;
       };
-/** Mirrors a modulation across the body's centre plane. */
-const mirrored =
-  (m: Modulate): Modulate =>
-  (a) =>
-    m(Math.PI - a);
 type Weight = [BoneName, number];
 interface Section {
   /** Ring centre in rest space. */
@@ -135,9 +130,9 @@ export const regions = {
   torso: { u0: 0, v0: 0.5, u1: 0.5, v1: 1 },
   arm: { u0: 0.5, v0: 0.5, u1: 0.75, v1: 1 },
   leg: { u0: 0.75, v0: 0.5, u1: 1, v1: 1 },
-  head: { u0: 0, v0: 0.14, u1: 0.34, v1: 0.5 },
-  hair: { u0: 0.34, v0: 0.14, u1: 0.62, v1: 0.5 },
-  boot: { u0: 0.62, v0: 0.14, u1: 0.9, v1: 0.5 },
+  head: { u0: 0, v0: 0.02, u1: 0.44, v1: 0.5 },
+  hair: { u0: 0.44, v0: 0.02, u1: 0.68, v1: 0.5 },
+  boot: { u0: 0.68, v0: 0.02, u1: 0.95, v1: 0.5 },
 } satisfies Record<string, Region>;
 interface Builder {
   position: number[];
@@ -145,6 +140,8 @@ interface Builder {
   index: number[];
   skinIndex: number[];
   skinWeight: number[];
+  /** Coincident ring ends, welded after normals are computed. */
+  seams: [number, number][];
 }
 function pushWeights(build: Builder, w: Weight[]) {
   const total = w.reduce((sum, [, value]) => sum + value, 0) || 1;
@@ -165,11 +162,18 @@ function tube(
   axis: "y" | "z",
   segments: number,
   region: Region,
-  options: { from?: number; to?: number; floor?: number } = {},
+  options: {
+    from?: number;
+    to?: number;
+    floor?: number;
+    /** Mirrors the ring so a left and a right limb share texture sides. */
+    mirror?: boolean;
+  } = {},
 ) {
-  const { from = 0, to = Math.PI * 2, floor } = options;
+  const { from = 0, to = Math.PI * 2, floor, mirror = false } = options;
   const closed = to - from >= Math.PI * 2 - 1e-6;
   const start = build.position.length / 3;
+  const stride = segments + 1;
   for (const section of sections) {
     const k = section.k ?? 1;
     for (let i = 0; i <= segments; i++) {
@@ -179,7 +183,7 @@ function tube(
       const su = superellipse(Math.sin(a), k) * section.r[0] * scale;
       const sv = superellipse(Math.cos(a), k) * section.r[1] * scale;
       // Sweeping along Z mirrors the ring so the winding still faces outward.
-      let x = section.c[0] + (axis === "y" ? su : -su);
+      let x = section.c[0] + (axis === "y" && !mirror ? su : -su);
       let y = section.c[1];
       let z = section.c[2];
       if (axis === "y") z += sv;
@@ -193,14 +197,19 @@ function tube(
       pushWeights(build, section.w);
     }
   }
-  const stride = segments + 1;
+  // The duplicate vertex that closes the ring carries u = 1, so the last face
+  // must use it: wrapping back to u = 0 smears the whole strip across one quad.
   for (let j = 0; j < sections.length - 1; j++)
     for (let i = 0; i < segments; i++) {
       const a = start + j * stride + i;
       const b = a + stride;
-      const wrap = closed && i === segments - 1 ? 1 - segments : 1;
-      build.index.push(a, a + wrap, b, a + wrap, b + wrap, b);
+      if (mirror && axis === "y")
+        build.index.push(a, b, a + 1, a + 1, b, b + 1);
+      else build.index.push(a, a + 1, b, a + 1, b + 1, b);
     }
+  if (closed)
+    for (let j = 0; j < sections.length; j++)
+      build.seams.push([start + j * stride, start + j * stride + segments]);
 }
 type Row = [number, number, number, Weight[], Modulate?];
 /** Rings for one arm or leg, mirrored by `side` (+1 is the player's left). */
@@ -215,7 +224,7 @@ const limb = (side: number, x: number, rows: Row[]): Section[] => {
       (side > 0 ? name : name.replace(/L$/, "R")) as BoneName,
       value,
     ]),
-    m: m && side < 0 ? mirrored(m) : m,
+    m,
   }));
 };
 // ---------------------------------------------------------------------------
@@ -251,7 +260,11 @@ const pecs = shaped(
   lobe(A_FRONT, 0.32, -0.05),
   ...flanks(0.8, 0.05),
 );
-const yoke = shaped(lobe(A_BACK, 0.34, -0.03), ...flanks(0.95, 0.09));
+const yoke = shaped(
+  lobe(A_BACK, 0.34, -0.03),
+  lobe(A_FRONT, 0.8, 0.035),
+  ...flanks(0.95, 0.09),
+);
 function buildGeometry(): THREE.BufferGeometry {
   const build: Builder = {
     position: [],
@@ -259,6 +272,7 @@ function buildGeometry(): THREE.BufferGeometry {
     index: [],
     skinIndex: [],
     skinWeight: [],
+    seams: [],
   };
   // ---- torso, from the shorts hem to the base of the skull ---------------
   const torsoRows: [number, number, number, Weight[], number, Modulate?][] = [
@@ -291,7 +305,7 @@ function buildGeometry(): THREE.BufferGeometry {
       m,
     })),
     "y",
-    28,
+    34,
     regions.torso,
     SWEEP,
   );
@@ -350,6 +364,8 @@ function buildGeometry(): THREE.BufferGeometry {
   const thumb = shaped(lobe(A_RIGHT, 0.5, 0.24));
   const palm = shaped(lobe(A_RIGHT, 0.6, 0.12));
   const quad = shaped(lobe(A_FRONT, 1.1, 0.05), lobe(A_BACK, 1.1, 0.045));
+  const knee = shaped(lobe(A_FRONT, 0.7, 0.07), lobe(A_BACK, 0.6, -0.04));
+  const ankle = shaped(...flanks(0.4, 0.09));
   const calf = shaped(lobe(A_BACK, 0.95, 0.1), lobe(A_FRONT, 0.5, -0.04));
   const shin = shaped(lobe(A_FRONT, 0.45, -0.05));
   for (const side of [1, -1]) {
@@ -378,32 +394,32 @@ function buildGeometry(): THREE.BufferGeometry {
       "y",
       18,
       regions.arm,
-      SWEEP,
+      { ...SWEEP, mirror: side < 0 },
     );
     tube(
       build,
       limb(side, 0.09, [
-        [0.965, 0.098, 0.103, [["hips", 0.45], ["thighL", 0.55]]],
-        [0.9, 0.094, 0.099, [["thighL", 1]], quad],
-        [0.82, 0.088, 0.093, [["thighL", 1]], quad],
-        [0.73, 0.08, 0.084, [["thighL", 1]], quad],
-        [0.64, 0.07, 0.073, [["thighL", 1]]],
-        [0.57, 0.061, 0.063, [["thighL", 1]]],
-        [0.52, 0.057, 0.059, [["thighL", 1]]],
-        [0.505, 0.056, 0.058, [["thighL", 0.45], ["shinL", 0.55]]],
-        [0.48, 0.054, 0.057, [["shinL", 1]]],
+        [0.965, 0.094, 0.103, [["hips", 0.45], ["thighL", 0.55]]],
+        [0.9, 0.089, 0.099, [["thighL", 1]], quad],
+        [0.82, 0.081, 0.093, [["thighL", 1]], quad],
+        [0.73, 0.073, 0.085, [["thighL", 1]], quad],
+        [0.64, 0.064, 0.074, [["thighL", 1]]],
+        [0.57, 0.057, 0.064, [["thighL", 1]]],
+        [0.52, 0.057, 0.059, [["thighL", 1]], knee],
+        [0.505, 0.056, 0.058, [["thighL", 0.45], ["shinL", 0.55]], knee],
+        [0.48, 0.054, 0.057, [["shinL", 1]], knee],
         [0.44, 0.057, 0.062, [["shinL", 1]], calf],
         [0.4, 0.057, 0.062, [["shinL", 1]], calf],
         [0.34, 0.051, 0.055, [["shinL", 1]], shin],
         [0.25, 0.042, 0.045, [["shinL", 1]], shin],
         [0.16, 0.035, 0.037, [["shinL", 1]], shin],
-        [0.12, 0.033, 0.035, [["shinL", 0.6], ["footL", 0.4]]],
+        [0.12, 0.033, 0.035, [["shinL", 0.6], ["footL", 0.4]], ankle],
         [0.095, 0.033, 0.036, [["footL", 1]]],
       ]),
       "y",
       20,
       regions.leg,
-      SWEEP,
+      { ...SWEEP, mirror: side < 0 },
     );
     const foot: Weight[] = [[side > 0 ? "footL" : "footR", 1]];
     tube(
@@ -491,6 +507,17 @@ function buildGeometry(): THREE.BufferGeometry {
   );
   geometry.setIndex(build.index);
   geometry.computeVertexNormals();
+  // Average the normals of the two vertices that sit on top of each other at a
+  // ring's seam, otherwise a hard shading line runs down every limb.
+  const normal = geometry.getAttribute("normal");
+  for (const [a, b] of build.seams) {
+    const x = normal.getX(a) + normal.getX(b),
+      y = normal.getY(a) + normal.getY(b),
+      z = normal.getZ(a) + normal.getZ(b);
+    const length = Math.hypot(x, y, z) || 1;
+    normal.setXYZ(a, x / length, y / length, z / length);
+    normal.setXYZ(b, x / length, y / length, z / length);
+  }
   // Deformed limbs reach past the rest pose, so cull against a generous sphere.
   geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0.9, 0), 1.6);
   return geometry;
