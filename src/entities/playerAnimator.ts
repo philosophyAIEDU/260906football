@@ -105,8 +105,8 @@ export function poseRig(
       0.08 + (0.2 + 1.15 * run) * (0.5 - 0.5 * Math.cos(w + 0.95));
     target.foot[i] = -0.12 + Math.sin(w + 0.7) * 0.32 * run;
     target.armX[i] = Math.sin(w) * (0.16 + 0.62 * run);
-    target.armZ[i] = 0.12 + 0.09 * run;
-    target.foreX[i] = -(0.22 + 0.85 * run + 0.24 * Math.sin(w));
+    target.armZ[i] = 0.075 + 0.11 * run;
+    target.foreX[i] = -(0.42 + 0.62 * run + 0.24 * Math.sin(w));
   }
   target.spineX = 0.04 + 0.19 * run + 0.13 * sprint + (idle ? breath * 0.02 : 0);
   target.chestY = -Math.sin(phase) * 0.12 * run;

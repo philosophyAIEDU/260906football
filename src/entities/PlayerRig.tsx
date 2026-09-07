@@ -3,7 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { match } from "../game/MatchEngine";
 import { playerGeometry, createSkeleton } from "./playerBody";
-import { createKitTexture } from "./kitTexture";
+import { createKitTexture, kitSurfaces } from "./kitTexture";
 import { createRigState, poseRig } from "./playerAnimator";
 const frozen = ["paused", "halftime", "finished", "menu"];
 /** One skinned footballer: shared geometry, own skeleton, own painted kit. */
@@ -13,10 +13,15 @@ export function PlayerRig({ index }: { index: number }) {
   const state = useRef(createRigState(index));
   const rig = useMemo(() => {
     const { texture, variant } = createKitTexture(player);
+    const relief = kitSurfaces(player.slot === 0);
     const material = new THREE.MeshStandardMaterial({
       map: texture,
-      roughness: 0.78,
+      normalMap: relief.normal,
+      normalScale: new THREE.Vector2(0.55, 0.55),
+      roughnessMap: relief.roughness,
+      roughness: 1,
       metalness: 0,
+      envMapIntensity: 0.7,
     });
     const { bones, skeleton } = createSkeleton();
     const mesh = new THREE.SkinnedMesh(playerGeometry(), material);
