@@ -1,11 +1,4 @@
-import {
-  Component,
-  Suspense,
-  useEffect,
-  useState,
-  useRef,
-  type ReactNode,
-} from "react";
+import { Component, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { useFrame } from "@react-three/fiber";
 import {
   RigidBody,
@@ -16,8 +9,11 @@ import * as THREE from "three";
 import type { Player as PlayerData } from "../game/types";
 import { match } from "../game/MatchEngine";
 import { AnimatedModel } from "./AnimatedModel";
-import { AthleticRig } from "./AthleticRig";
+import { PlayerRig } from "./PlayerRig";
+import { loadKitOverlays } from "./kitTexture";
+import { softCircle } from "../stadium/textures";
 import { assetConfig } from "../data/assets";
+import { teams } from "../data/teams";
 class ModelBoundary extends Component<
   { children: ReactNode; fallback: ReactNode },
   { failed: boolean }
@@ -31,31 +27,19 @@ class ModelBoundary extends Component<
   }
 }
 export function Player({ player: p }: { player: PlayerData }) {
-  const [uniform, setUniform] = useState<THREE.Texture | null>(null);
+  // Shirt artwork, when a project supplies it, arrives after the first paint.
+  const [kitRevision, setKitRevision] = useState(0);
   useEffect(() => {
-    const url = assetConfig.uniformTextures[p.teamId];
-    if (!url) return;
     let alive = true;
-    let loaded: THREE.Texture | undefined;
-    new THREE.TextureLoader().load(
-      url,
-      (t) => {
-        loaded = t;
-        t.colorSpace = THREE.SRGBColorSpace;
-        if (alive) setUniform(t);
-        else t.dispose();
-      },
-      undefined,
-      () => {},
-    );
+    loadKitOverlays().then(() => alive && setKitRevision((n) => n + 1));
     return () => {
       alive = false;
-      loaded?.dispose();
     };
-  }, [p.teamId]);
+  }, []);
   const root = useRef<THREE.Group>(null),
     rig = useRef<RapierRigidBody>(null),
     marker = useRef<THREE.Group>(null),
+    chevron = useRef<THREE.Mesh>(null),
     energy = useRef<THREE.Mesh>(null);
   useFrame(({ clock }) => {
     const current = match.players[p.index];
@@ -73,18 +57,16 @@ export function Player({ player: p }: { player: PlayerData }) {
     if (marker.current) {
       marker.current.visible =
         current.index === match.selected && match.phase !== "menu";
-      marker.current.position.y = Math.sin(clock.elapsedTime * 3) * 0.035;
+      const pulse = Math.sin(clock.elapsedTime * 3.4);
+      if (chevron.current) chevron.current.position.y = 2.24 + pulse * 0.055;
+      marker.current.scale.setScalar(1 + pulse * 0.03);
     }
     if (energy.current) {
-      energy.current.scale.x = current.energy / 100;
+      energy.current.scale.x = Math.max(0.02, current.energy / 100);
       energy.current.position.x = -(1 - current.energy / 100) * 0.35;
     }
   });
-  const fallback = (
-    <group scale={1.04}>
-      <AthleticRig index={p.index} uniform={uniform} />
-    </group>
-  );
+  const fallback = <PlayerRig key={kitRevision} index={p.index} />;
   return (
     <>
       <RigidBody
@@ -108,39 +90,58 @@ export function Player({ player: p }: { player: PlayerData }) {
         )}
         <mesh
           rotation={[-Math.PI / 2, 0, 0]}
-          position={[0, 0.021, 0]}
-          scale={[0.48, 0.34, 1]}
+          position={[0, 0.016, 0.04]}
+          scale={[0.78, 0.62, 1]}
         >
-          <circleGeometry args={[1, 20]} />
+          <planeGeometry args={[1, 1]} />
           <meshBasicMaterial
-            color="#112410"
+            map={softCircle()}
+            color="#0d1c0b"
             transparent
-            opacity={0.19}
+            opacity={0.42}
             depthWrite={false}
           />
         </mesh>
         <group ref={marker}>
-          <mesh position={[0, 2.16, 0]} rotation={[0, 0, Math.PI]}>
-            <coneGeometry args={[0.14, 0.25, 3]} />
-            <meshBasicMaterial color="#62faaa" toneMapped={false} />
-          </mesh>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.033, 0]}>
-            <ringGeometry args={[0.37, 0.41, 40]} />
+          <mesh
+            ref={chevron}
+            position={[0, 2.24, 0]}
+            rotation={[0, Math.PI / 4, Math.PI]}
+          >
+            <coneGeometry args={[0.13, 0.26, 4]} />
             <meshBasicMaterial
-              color="#5cf09a"
+              color={teams[p.teamId].color}
+              toneMapped={false}
+            />
+          </mesh>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.028, 0]}>
+            <ringGeometry args={[0.34, 0.44, 48]} />
+            <meshBasicMaterial
+              color="#8dffbe"
               transparent
-              opacity={0.65}
+              opacity={0.55}
+              depthWrite={false}
+              toneMapped={false}
+            />
+          </mesh>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.024, 0]}>
+            <circleGeometry args={[0.46, 32]} />
+            <meshBasicMaterial
+              map={softCircle()}
+              color="#4bf49a"
+              transparent
+              opacity={0.3}
               depthWrite={false}
             />
           </mesh>
-          <group position={[0, 0.06, -0.52]} rotation={[-Math.PI / 2, 0, 0]}>
+          <group position={[0, 0.055, -0.56]} rotation={[-Math.PI / 2, 0, 0]}>
             <mesh>
-              <planeGeometry args={[0.75, 0.09]} />
-              <meshBasicMaterial color="#17381d" transparent opacity={0.8} />
+              <planeGeometry args={[0.76, 0.1]} />
+              <meshBasicMaterial color="#0d2415" transparent opacity={0.72} />
             </mesh>
             <mesh ref={energy} position={[0, 0, 0.002]}>
-              <planeGeometry args={[0.7, 0.06]} />
-              <meshBasicMaterial color="#59f393" toneMapped={false} />
+              <planeGeometry args={[0.7, 0.058]} />
+              <meshBasicMaterial color="#6ef7a4" toneMapped={false} />
             </mesh>
           </group>
         </group>

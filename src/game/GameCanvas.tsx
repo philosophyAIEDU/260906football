@@ -1,5 +1,6 @@
 import { Suspense, useEffect } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import * as THREE from "three";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
   Physics,
   RigidBody,
@@ -16,6 +17,31 @@ import { match } from "./MatchEngine";
 import { input } from "../systems/InputSystem";
 import { useSettings } from "../store/settingsStore";
 import { useMatch } from "../store/matchStore";
+import { skyTexture } from "../stadium/textures";
+/**
+ * Image based lighting from the sky gradient. It costs one small render at
+ * start-up and gives kits, the ball and the roof steel a believable sheen.
+ */
+function SkyLight() {
+  const gl = useThree((s) => s.gl);
+  const scene = useThree((s) => s.scene);
+  useEffect(() => {
+    const source = skyTexture().clone();
+    source.needsUpdate = true;
+    source.mapping = THREE.EquirectangularReflectionMapping;
+    const pmrem = new THREE.PMREMGenerator(gl);
+    const target = pmrem.fromEquirectangular(source);
+    scene.environment = target.texture;
+    scene.environmentIntensity = 0.5;
+    return () => {
+      scene.environment = null;
+      target.dispose();
+      pmrem.dispose();
+      source.dispose();
+    };
+  }, [gl, scene]);
+  return null;
+}
 function Loop() {
   useEffect(() => input.attach(), []);
   useBeforePhysicsStep(() => match.tick(1 / 60, input.sample()));
@@ -58,27 +84,39 @@ export function GameCanvas() {
   const paused = ["menu", "paused", "halftime", "finished"].includes(phase);
   return (
     <Canvas
-      shadows={quality !== "low"}
-      dpr={quality === "low" ? 1 : [1, quality === "high" ? 1.75 : 1.3]}
-      camera={{ position: [36, 29, 43], fov: 43, near: 0.1, far: 280 }}
-      gl={{ antialias: quality !== "low", powerPreference: "high-performance" }}
+      shadows={quality === "low" ? false : { type: THREE.PCFSoftShadowMap }}
+      dpr={quality === "low" ? 1 : [1, quality === "high" ? 1.9 : 1.4]}
+      camera={{ position: [36, 29, 43], fov: 43, near: 0.3, far: 900 }}
+      gl={{
+        antialias: quality !== "low",
+        powerPreference: "high-performance",
+        toneMapping: THREE.ACESFilmicToneMapping,
+        toneMappingExposure: 1,
+      }}
     >
-      <color attach="background" args={["#a9cbdc"]} />
-      <fog attach="fog" args={["#bdd1d7", 145, 260]} />
-      <hemisphereLight args={["#e8f2ff", "#435b25", 1.35]} />
+      <color attach="background" args={["#9fc3d8"]} />
+      <fog attach="fog" args={["#b6cdd8", 175, 460]} />
+      <SkyLight />
+      <hemisphereLight args={["#dff0ff", "#3d5a26", 0.9]} />
       <directionalLight
-        position={[-26, 55, -32]}
-        intensity={2.4}
+        position={[-58, 86, -44]}
+        intensity={2.35}
+        color="#fff3df"
         castShadow={quality !== "low"}
         shadow-mapSize={quality === "high" ? 4096 : 2048}
-        shadow-camera-left={-72}
-        shadow-camera-right={72}
-        shadow-camera-top={55}
-        shadow-camera-bottom={-55}
-        shadow-camera-far={180}
-        shadow-bias={-0.00012}
-        shadow-normalBias={0.025}
-        shadow-radius={2}
+        shadow-camera-left={-78}
+        shadow-camera-right={78}
+        shadow-camera-top={58}
+        shadow-camera-bottom={-58}
+        shadow-camera-near={20}
+        shadow-camera-far={240}
+        shadow-bias={-0.0002}
+        shadow-normalBias={0.03}
+      />
+      <directionalLight
+        position={[62, 44, 58]}
+        intensity={0.45}
+        color="#cfe2ff"
       />
       <Suspense fallback={null}>
         <Physics gravity={[0, -9.81, 0]} timeStep={1 / 60} paused={paused}>

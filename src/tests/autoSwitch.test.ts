@@ -2,7 +2,7 @@ import {it,expect} from 'vitest';
 import {createPlayers} from '../data/teams';
 import {nearbyController} from '../systems/AutoSwitchSystem';
 import {keyboardAction} from '../systems/InputSystem';
-import {humanGeometry} from '../entities/humanGeometry';
+import {playerGeometry,createSkeleton,boneNames} from '../entities/playerBody';
 const scene=()=>{const p=createPlayers();p.forEach(t=>t.pos={x:30,z:25});p[9].pos={x:10,z:0};p[6].pos={x:2,z:0};return p};
 const ball={x:0,y:.11,z:0},velocity={x:0,y:0,z:0};
 it('selects nearby teammate before possession',()=>expect(nearbyController(scene(),0,9,ball,velocity,null,null,new Set())).toBe(6));
@@ -11,4 +11,6 @@ it('ignores offside and sent off candidates',()=>{const p=scene();expect(nearbyC
 it('does not switch while opponent owns the ball',()=>expect(nearbyController(scene(),0,9,ball,velocity,12,null,new Set())).toBe(9));
 it('does not switch toward a distant ball',()=>{const p=scene();p[6].pos.x=7;expect(nearbyController(p,0,9,ball,velocity,null,null,new Set())).toBe(9)});
 it('maps Space to manual switching and S to passing',()=>{expect(keyboardAction('Space')).toBe('Tab');expect(keyboardAction('KeyS')).toBe('Space')});
-it('anatomical meshes have outward facing front normals',()=>{for(const g of Object.values(humanGeometry)){const normal=g.getAttribute('normal');const width=25;expect(normal.getZ(width*3)).toBeGreaterThan(0)}});
+it('skins every footballer vertex with normalised weights',()=>{const g=playerGeometry();const weight=g.getAttribute('skinWeight'),index=g.getAttribute('skinIndex');expect(weight.count).toBeGreaterThan(800);for(let i=0;i<weight.count;i+=13){expect(weight.getX(i)+weight.getY(i)+weight.getZ(i)+weight.getW(i)).toBeCloseTo(1,5);expect(index.getX(i)).toBeLessThan(boneNames.length)}});
+it('gives the body outward facing normals and a life sized bounding sphere',()=>{const g=playerGeometry();const position=g.getAttribute('position'),normal=g.getAttribute('normal');let front=0;for(let i=0;i<position.count;i++)if(position.getZ(i)>position.getZ(front))front=i;expect(normal.getZ(front)).toBeGreaterThan(0);expect(g.boundingSphere!.radius).toBeGreaterThan(1)});
+it('wires the skeleton from the hips outward',()=>{const {bones,skeleton}=createSkeleton();expect(skeleton.bones).toHaveLength(boneNames.length);expect(bones.head.parent).toBe(bones.neck);expect(bones.footR.parent).toBe(bones.shinR);expect(bones.hips.parent).toBe(null)});

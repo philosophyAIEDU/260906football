@@ -37,7 +37,7 @@ export function CameraSystem() {
           0,
           8,
         );
-        position.set(x + 2, 27 + wide, z + 31 + wide);
+        position.set(x + 2, 30 + wide, z + 35 + wide);
       } else if (match.cameraMode === 1) {
         const dir = match.dir(p.teamId);
         position.set(p.pos.x - dir * 12, 8, p.pos.z + 5);
