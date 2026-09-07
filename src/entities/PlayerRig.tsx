@@ -24,6 +24,13 @@ export function PlayerRig({ index }: { index: number }) {
       envMapIntensity: 0.7,
     });
     const { bones, skeleton } = createSkeleton();
+    // Head size and squash vary per player; the bone scale carries the skin,
+    // the hair and the painted face with it.
+    bones.head.scale.set(
+      variant.headScale[0],
+      variant.headScale[1],
+      variant.headScale[0],
+    );
     const mesh = new THREE.SkinnedMesh(playerGeometry(), material);
     mesh.add(bones.hips);
     mesh.bind(skeleton, new THREE.Matrix4());
@@ -46,6 +53,7 @@ export function PlayerRig({ index }: { index: number }) {
       match.players[index],
       Math.min(dt, 0.05),
       state.current,
+      { ball: match.ball, carrying: match.owner === index },
     );
     group.current.position.y = pose.bob;
     group.current.rotation.x = pose.pitch;

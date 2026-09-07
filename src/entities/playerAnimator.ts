@@ -6,13 +6,24 @@ export interface RigState {
   duration: number;
   previous: number;
   drift: number;
+  /** Previous facing, so the rig can bank into a turn. */
+  angle: number;
+  turn: number;
 }
 export const createRigState = (index: number): RigState => ({
   cycle: index * 0.83,
   duration: 0,
   previous: 0,
   drift: index * 1.7,
+  angle: 0,
+  turn: 0,
 });
+export interface Context {
+  /** Where the ball is, so players watch it rather than stare ahead. */
+  ball: { x: number; z: number };
+  /** True while this player is the one on the ball. */
+  carrying: boolean;
+}
 export interface RootPose {
   bob: number;
   pitch: number;
@@ -38,13 +49,25 @@ export function poseRig(
   player: Player,
   dt: number,
   state: RigState,
+  context: Context,
 ): RootPose {
   const speed = Math.hypot(player.vel.x, player.vel.z);
   const run = clamp(speed / 6.4, 0, 1);
   const sprint = clamp((speed - 5.5) / 3, 0, 1);
-  state.cycle += dt * (2.2 + speed * 0.62);
+  // Lock the gait to ground travel: one cycle covers two steps, and a step
+  // grows with speed. Without this the legs turn over far too slowly for the
+  // distance covered and the feet skate across the pitch.
+  const step = 0.85 + 0.125 * speed;
+  state.cycle += dt * (Math.PI * speed) / step + dt * 0.9;
   state.drift += dt;
   const phase = state.cycle;
+  // Banking into a change of direction.
+  const swing = Math.atan2(
+    Math.sin(player.angle - state.angle),
+    Math.cos(player.angle - state.angle),
+  );
+  state.angle = player.angle;
+  state.turn = lerp(state.turn, clamp(swing / Math.max(dt, 0.001) * 0.06, -1, 1), 1 - Math.exp(-dt * 6));
   // Action progress, recovered from the countdown the engine owns.
   if (player.actionTime > state.previous + 1e-4)
     state.duration = player.actionTime;
@@ -97,23 +120,40 @@ export function poseRig(
     headX: 0,
     headY: 0,
     hipsY: 0,
+    hipsZ: 0,
   };
   for (let i = 0; i < 2; i++) {
     const w = phase + legs[i].offset;
-    target.thigh[i] = -Math.sin(w) * (0.2 + 0.52 * run) + (idle ? 0.03 : 0);
+    target.thigh[i] = -Math.sin(w) * (0.05 + 0.67 * run) + (idle ? 0.03 : 0);
     target.shin[i] =
-      0.08 + (0.2 + 1.15 * run) * (0.5 - 0.5 * Math.cos(w + 0.95));
-    target.foot[i] = -0.12 + Math.sin(w + 0.7) * 0.32 * run;
-    target.armX[i] = Math.sin(w) * (0.16 + 0.62 * run);
-    target.armZ[i] = 0.075 + 0.11 * run;
+      0.06 + (0.06 + 1.3 * run) * (0.5 - 0.5 * Math.cos(w + 0.95));
+    // Through the stance half of the cycle the sole is held flat against the
+    // pitch, which is what stops the feet looking like they slide.
+    const stance = clamp(-Math.sin(w) * 1.6, 0, 1);
+    const flat = clamp(-(target.thigh[i] + target.shin[i]), -0.7, 0.4);
+    target.foot[i] = lerp(-0.1 + 0.26 * run, flat, stance * run);
+    target.armX[i] = Math.sin(w) * (0.05 + 0.72 * run);
+    target.armZ[i] = 0.075 + 0.11 * run + (context.carrying ? 0.14 : 0);
     target.foreX[i] = -(0.42 + 0.62 * run + 0.24 * Math.sin(w));
   }
+  // Pelvic list and a lean into the turn.
+  target.hipsZ = -Math.sin(phase) * 0.06 * run;
+  pose.roll = -state.turn * 0.16 * run;
   target.spineX = 0.04 + 0.19 * run + 0.13 * sprint + (idle ? breath * 0.02 : 0);
-  target.chestY = -Math.sin(phase) * 0.12 * run;
-  target.hipsY = Math.sin(phase) * 0.1 * run;
+  target.chestY = -Math.sin(phase) * 0.14 * run;
+  target.hipsY = Math.sin(phase) * 0.12 * run;
   target.headX = -(0.04 + 0.2 * run + 0.1 * sprint);
-  target.headY = -target.chestY * 0.7;
-  pose.bob = Math.abs(Math.sin(phase)) * (0.006 + 0.036 * run);
+  // Watch the ball rather than staring straight ahead.
+  const toBall = Math.atan2(
+    context.ball.x - player.pos.x,
+    context.ball.z - player.pos.z,
+  );
+  const relative = Math.atan2(
+    Math.sin(toBall - player.angle),
+    Math.cos(toBall - player.angle),
+  );
+  target.headY = clamp(relative, -0.85, 0.85) - target.chestY * 0.5;
+  pose.bob = Math.abs(Math.sin(phase)) * (0.004 + 0.042 * run);
   // ---- overrides for the current action ---------------------------------
   if (keeper && !acting && !diving) {
     const ready = clamp(1 - run * 2, 0, 1);
@@ -202,10 +242,10 @@ export function poseRig(
     set(arms[i].upper, target.armX[i], 0, arms[i].side * target.armZ[i]);
     set(arms[i].fore, target.foreX[i]);
   }
-  set(bones.hips, 0, target.hipsY);
+  set(bones.hips, 0, target.hipsY, target.hipsZ);
   set(bones.spine, target.spineX * 0.55, target.spineY);
   set(bones.chest, target.spineX * 0.45, target.chestY);
-  set(bones.neck, target.headX * 0.4);
-  set(bones.head, target.headX * 0.6, target.headY);
+  set(bones.neck, target.headX * 0.4, target.headY * 0.4);
+  set(bones.head, target.headX * 0.6, target.headY * 0.6);
   return pose;
 }
