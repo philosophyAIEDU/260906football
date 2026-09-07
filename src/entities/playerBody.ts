@@ -4,6 +4,10 @@ import * as THREE from "three";
  * atlas. Twenty-two players therefore cost one geometry, one draw call each and
  * no downloaded assets, while deforming smoothly instead of showing the gaps a
  * rigid part-by-part rig leaves at every joint.
+ *
+ * Proportions follow a 1.80 m athlete at roughly seven and a half heads tall,
+ * and every cross section can be reshaped per angle so the silhouette carries
+ * deltoids, a spine groove, calves, a jaw and a nose rather than plain ovals.
  */
 export const boneNames = [
   "hips",
@@ -31,22 +35,22 @@ const boneIndex = Object.fromEntries(
 ) as Record<BoneName, number>;
 /** Bone rest layout: parent plus the offset from it, in metres. */
 const skeletonPlan: [BoneName, BoneName | null, [number, number, number]][] = [
-  ["hips", null, [0, 0.94, 0]],
-  ["spine", "hips", [0, 0.16, 0]],
-  ["chest", "spine", [0, 0.18, 0]],
-  ["neck", "chest", [0, 0.2, 0]],
-  ["head", "neck", [0, 0.08, 0]],
-  ["armL", "chest", [0.175, 0.14, 0]],
-  ["foreL", "armL", [0, -0.27, 0]],
-  ["handL", "foreL", [0, -0.25, 0]],
-  ["armR", "chest", [-0.175, 0.14, 0]],
-  ["foreR", "armR", [0, -0.27, 0]],
-  ["handR", "foreR", [0, -0.25, 0]],
-  ["thighL", "hips", [0.085, 0, 0]],
-  ["shinL", "thighL", [0, -0.44, 0]],
+  ["hips", null, [0, 0.95, 0]],
+  ["spine", "hips", [0, 0.155, 0]],
+  ["chest", "spine", [0, 0.185, 0]],
+  ["neck", "chest", [0, 0.185, 0]],
+  ["head", "neck", [0, 0.085, 0]],
+  ["armL", "chest", [0.168, 0.13, 0]],
+  ["foreL", "armL", [0, -0.275, 0]],
+  ["handL", "foreL", [0, -0.255, 0]],
+  ["armR", "chest", [-0.168, 0.13, 0]],
+  ["foreR", "armR", [0, -0.275, 0]],
+  ["handR", "foreR", [0, -0.255, 0]],
+  ["thighL", "hips", [0.09, -0.015, 0]],
+  ["shinL", "thighL", [0, -0.43, 0]],
   ["footL", "shinL", [0, -0.425, 0]],
-  ["thighR", "hips", [-0.085, 0, 0]],
-  ["shinR", "thighR", [0, -0.44, 0]],
+  ["thighR", "hips", [-0.09, -0.015, 0]],
+  ["shinR", "thighR", [0, -0.43, 0]],
   ["footR", "shinR", [0, -0.425, 0]],
 ];
 export function createSkeleton(): { bones: Bones; skeleton: THREE.Skeleton } {
@@ -63,6 +67,49 @@ export function createSkeleton(): { bones: Bones; skeleton: THREE.Skeleton } {
   map.hips.updateMatrixWorld(true);
   return { bones: map, skeleton: new THREE.Skeleton(list) };
 }
+// ---------------------------------------------------------------------------
+// Cross section shaping
+// ---------------------------------------------------------------------------
+/** Ring angles. The mesh faces +Z, so zero is the front of the body. */
+const A_FRONT = 0,
+  A_LEFT = Math.PI / 2,
+  A_BACK = Math.PI,
+  A_RIGHT = -Math.PI / 2;
+/**
+ * Vertical tubes start a quarter turn early, which puts the texture seams on
+ * the flanks and leaves the chest and the back on clean texture centres.
+ */
+const SWEEP = { from: A_RIGHT, to: A_RIGHT + Math.PI * 2 };
+/** Texture coordinate of the chest and of the spine, around any vertical part. */
+export const FRONT = 0.25;
+export const BACK = 0.75;
+type Modulate = (angle: number) => number;
+/** Smooth radial bump centred on one angle, as a fraction of the radius. */
+function lobe(centre: number, width: number, amount: number): Modulate {
+  return (a) => {
+    const d = Math.atan2(Math.sin(a - centre), Math.cos(a - centre));
+    const t = 1 - Math.min(1, Math.abs(d) / width);
+    return amount * t * t * (3 - 2 * t);
+  };
+}
+const flanks = (width: number, amount: number) => [
+  lobe(A_LEFT, width, amount),
+  lobe(A_RIGHT, width, amount),
+];
+/** Combines bumps into a radius multiplier. */
+const shaped = (...parts: Modulate[]): Modulate =>
+  parts.length === 0
+    ? () => 1
+    : (a) => {
+        let sum = 1;
+        for (const part of parts) sum += part(a);
+        return sum;
+      };
+/** Mirrors a modulation across the body's centre plane. */
+const mirrored =
+  (m: Modulate): Modulate =>
+  (a) =>
+    m(Math.PI - a);
 type Weight = [BoneName, number];
 interface Section {
   /** Ring centre in rest space. */
@@ -74,6 +121,8 @@ interface Section {
   w: Weight[];
   /** Superellipse exponent: 1 is a true ellipse, lower is boxier. */
   k?: number;
+  /** Per-angle radius multiplier that gives the section its anatomy. */
+  m?: Modulate;
 }
 interface Region {
   u0: number;
@@ -126,8 +175,9 @@ function tube(
     for (let i = 0; i <= segments; i++) {
       const t = i / segments;
       const a = from + (to - from) * t;
-      const su = superellipse(Math.sin(a), k) * section.r[0];
-      const sv = superellipse(Math.cos(a), k) * section.r[1];
+      const scale = section.m ? section.m(a) : 1;
+      const su = superellipse(Math.sin(a), k) * section.r[0] * scale;
+      const sv = superellipse(Math.cos(a), k) * section.r[1] * scale;
       // Sweeping along Z mirrors the ring so the winding still faces outward.
       let x = section.c[0] + (axis === "y" ? su : -su);
       let y = section.c[1];
@@ -152,15 +202,12 @@ function tube(
       build.index.push(a, a + wrap, b, a + wrap, b + wrap, b);
     }
 }
+type Row = [number, number, number, Weight[], Modulate?];
 /** Rings for one arm or leg, mirrored by `side` (+1 is the player's left). */
-const limb = (
-  side: number,
-  x: number,
-  rows: [number, number, number, Weight[]][],
-): Section[] => {
+const limb = (side: number, x: number, rows: Row[]): Section[] => {
   const first = rows[0][0];
   const span = rows[rows.length - 1][0] - first || 1;
-  return rows.map(([y, rx, rz, w]) => ({
+  return rows.map(([y, rx, rz, w, m]) => ({
     c: [side * x, y, 0] as [number, number, number],
     r: [rx, rz] as [number, number],
     v: (y - first) / span,
@@ -168,8 +215,43 @@ const limb = (
       (side > 0 ? name : name.replace(/L$/, "R")) as BoneName,
       value,
     ]),
+    m: m && side < 0 ? mirrored(m) : m,
   }));
 };
+// ---------------------------------------------------------------------------
+// Body
+// ---------------------------------------------------------------------------
+const hipsOnly: Weight[] = [["hips", 1]];
+const spineHips: Weight[] = [
+  ["hips", 0.5],
+  ["spine", 0.5],
+];
+const spineOnly: Weight[] = [["spine", 1]];
+const spineChest: Weight[] = [
+  ["spine", 0.55],
+  ["chest", 0.45],
+];
+const chestOnly: Weight[] = [["chest", 1]];
+const chestNeck: Weight[] = [
+  ["chest", 0.45],
+  ["neck", 0.55],
+];
+const neckOnly: Weight[] = [["neck", 1]];
+const neckHead: Weight[] = [
+  ["neck", 0.4],
+  ["head", 0.6],
+];
+const headOnly: Weight[] = [["head", 1]];
+const glute = shaped(lobe(A_BACK, 1.15, 0.11));
+const seat = shaped(lobe(A_BACK, 1.15, 0.06));
+const groove = shaped(lobe(A_BACK, 0.3, -0.055));
+const ribs = shaped(lobe(A_BACK, 0.3, -0.05), ...flanks(0.85, 0.03));
+const pecs = shaped(
+  lobe(A_BACK, 0.3, -0.045),
+  lobe(A_FRONT, 0.32, -0.05),
+  ...flanks(0.8, 0.05),
+);
+const yoke = shaped(lobe(A_BACK, 0.34, -0.03), ...flanks(0.95, 0.09));
 function buildGeometry(): THREE.BufferGeometry {
   const build: Builder = {
     position: [],
@@ -178,172 +260,220 @@ function buildGeometry(): THREE.BufferGeometry {
     skinIndex: [],
     skinWeight: [],
   };
-  const hips: Weight[] = [["hips", 1]];
-  const torso: Section[] = (
-    [
-      [0.8, 0.008, 0.006, hips, 0.55],
-      [0.807, 0.12, 0.095, hips, 0.55],
-      [0.812, 0.168, 0.126, hips, 0.6],
-      [0.845, 0.172, 0.128, hips, 0.7],
-      [0.88, 0.166, 0.122, hips, 0.78],
-      [0.94, 0.157, 0.115, hips, 0.85],
-      [1.0, 0.145, 0.104, [["hips", 0.5], ["spine", 0.5]], 0.92],
-      [1.1, 0.142, 0.1, [["spine", 1]], 1],
-      [1.19, 0.152, 0.104, [["spine", 0.55], ["chest", 0.45]], 1],
-      [1.28, 0.176, 0.114, [["chest", 1]], 1],
-      [1.36, 0.19, 0.118, [["chest", 1]], 1],
-      [1.42, 0.178, 0.113, [["chest", 1]], 1],
-      [1.46, 0.126, 0.094, [["chest", 0.45], ["neck", 0.55]], 1],
-      [1.5, 0.062, 0.064, [["neck", 1]], 1],
-      [1.54, 0.058, 0.06, [["neck", 0.4], ["head", 0.6]], 1],
-    ] as [number, number, number, Weight[], number][]
-  ).map(([y, rx, rz, w, k]) => ({
-    c: [0, y, 0],
-    r: [rx, rz],
-    v: (y - 0.8) / 0.74,
-    w,
-    k,
-  }));
-  tube(build, torso, "y", 24, regions.torso);
-  const head: Weight[] = [["head", 1]];
-  const skull: [number, number, number][] = [
-    [1.5, 0.058, 0.06],
-    [1.55, 0.07, 0.075],
-    [1.6, 0.085, 0.092],
-    [1.66, 0.093, 0.1],
-    [1.72, 0.094, 0.101],
-    [1.78, 0.088, 0.095],
-    [1.82, 0.07, 0.076],
-    [1.845, 0.038, 0.042],
-    [1.855, 0.006, 0.007],
+  // ---- torso, from the shorts hem to the base of the skull ---------------
+  const torsoRows: [number, number, number, Weight[], number, Modulate?][] = [
+    [0.745, 0.012, 0.01, hipsOnly, 0.6],
+    [0.752, 0.112, 0.094, hipsOnly, 0.6],
+    [0.759, 0.168, 0.136, hipsOnly, 0.66],
+    [0.8, 0.17, 0.138, hipsOnly, 0.7],
+    [0.856, 0.166, 0.134, hipsOnly, 0.74],
+    [0.896, 0.16, 0.128, hipsOnly, 0.82, glute],
+    [0.95, 0.152, 0.12, hipsOnly, 0.9, seat],
+    [1.01, 0.14, 0.109, spineHips, 0.96],
+    [1.1, 0.133, 0.104, spineOnly, 1, groove],
+    [1.19, 0.144, 0.109, spineChest, 1, ribs],
+    [1.29, 0.163, 0.121, chestOnly, 1, pecs],
+    [1.36, 0.171, 0.122, chestOnly, 1, pecs],
+    [1.42, 0.16, 0.115, chestOnly, 1, yoke],
+    [1.452, 0.128, 0.102, chestNeck, 1],
+    [1.472, 0.083, 0.075, chestNeck, 1],
+    [1.497, 0.062, 0.064, neckOnly, 1],
+    [1.545, 0.058, 0.06, neckHead, 1],
   ];
   tube(
     build,
-    skull.map(([y, rx, rz]) => ({
+    torsoRows.map(([y, rx, rz, w, k, m]) => ({
       c: [0, y, 0] as [number, number, number],
       r: [rx, rz] as [number, number],
-      v: (y - 1.5) / 0.355,
-      w: head,
+      v: (y - 0.745) / 0.8,
+      w,
+      k,
+      m,
     })),
     "y",
-    22,
-    regions.head,
+    28,
+    regions.torso,
+    SWEEP,
   );
+  // ---- head: jaw, chin, cheekbones, nose, brow, ears, occiput ------------
+  const jaw = shaped(lobe(A_FRONT, 0.55, 0.07), ...flanks(0.7, -0.13));
+  const chin = shaped(lobe(A_FRONT, 0.42, 0.12), ...flanks(0.7, -0.09));
+  const mouth = shaped(lobe(A_FRONT, 0.5, 0.03));
+  const cheek = shaped(
+    lobe(A_FRONT, 0.34, 0.19),
+    ...flanks(0.3, 0.1),
+    lobe(A_BACK, 1, 0.035),
+  );
+  const nose = shaped(
+    lobe(A_FRONT, 0.3, 0.3),
+    ...flanks(0.3, 0.11),
+    lobe(A_BACK, 1, 0.045),
+  );
+  const eyes = shaped(
+    lobe(A_FRONT, 0.34, 0.05),
+    ...flanks(0.32, 0.1),
+    lobe(A_BACK, 1, 0.045),
+  );
+  const brow = shaped(lobe(A_FRONT, 0.75, 0.045), lobe(A_BACK, 1, 0.04));
+  const skullRows: [number, number, number, Modulate?][] = [
+    [1.47, 0.056, 0.06],
+    [1.508, 0.061, 0.073],
+    [1.542, 0.067, 0.085, jaw],
+    [1.572, 0.071, 0.091, chin],
+    [1.604, 0.074, 0.095, mouth],
+    [1.638, 0.077, 0.098, nose],
+    [1.672, 0.079, 0.1, cheek],
+    [1.7, 0.079, 0.1, eyes],
+    [1.724, 0.078, 0.099, brow],
+    [1.752, 0.075, 0.094],
+    [1.78, 0.065, 0.081],
+    [1.798, 0.04, 0.051],
+    [1.806, 0.006, 0.008],
+  ];
+  tube(
+    build,
+    skullRows.map(([y, rx, rz, m]) => ({
+      c: [0, y, 0] as [number, number, number],
+      r: [rx, rz] as [number, number],
+      v: (y - 1.47) / 0.336,
+      w: headOnly,
+      m,
+    })),
+    "y",
+    40,
+    regions.head,
+    SWEEP,
+  );
+  // ---- arms and legs -----------------------------------------------------
+  const deltoid = shaped(lobe(A_LEFT, 1.1, 0.06));
+  const biceps = shaped(lobe(A_FRONT, 1, 0.055), lobe(A_BACK, 1, 0.05));
+  const thumb = shaped(lobe(A_RIGHT, 0.5, 0.24));
+  const palm = shaped(lobe(A_RIGHT, 0.6, 0.12));
+  const quad = shaped(lobe(A_FRONT, 1.1, 0.05), lobe(A_BACK, 1.1, 0.045));
+  const calf = shaped(lobe(A_BACK, 0.95, 0.1), lobe(A_FRONT, 0.5, -0.04));
+  const shin = shaped(lobe(A_FRONT, 0.45, -0.05));
   for (const side of [1, -1]) {
     tube(
       build,
-      limb(side, 0.175, [
-        [1.48, 0.072, 0.074, [["chest", 0.6], ["armL", 0.4]]],
-        [1.44, 0.075, 0.077, [["chest", 0.3], ["armL", 0.7]]],
-        [1.38, 0.065, 0.068, [["armL", 1]]],
-        [1.32, 0.058, 0.061, [["armL", 1]]],
-        [1.305, 0.061, 0.064, [["armL", 1]]],
-        [1.29, 0.05, 0.053, [["armL", 1]]],
-        [1.22, 0.046, 0.049, [["armL", 1]]],
-        [1.17, 0.044, 0.047, [["armL", 0.6], ["foreL", 0.4]]],
-        [1.12, 0.045, 0.048, [["foreL", 1]]],
-        [1.04, 0.043, 0.046, [["foreL", 1]]],
-        [0.96, 0.035, 0.037, [["foreL", 1]]],
-        [0.92, 0.032, 0.034, [["foreL", 0.5], ["handL", 0.5]]],
-        [0.87, 0.042, 0.028, [["handL", 1]]],
-        [0.81, 0.041, 0.027, [["handL", 1]]],
-        [0.77, 0.032, 0.022, [["handL", 1]]],
-        [0.752, 0.012, 0.009, [["handL", 1]]],
-      ]),
-      "y",
-      16,
-      regions.arm,
-    );
-    tube(
-      build,
-      limb(side, 0.085, [
-        [0.97, 0.096, 0.101, [["hips", 0.45], ["thighL", 0.55]]],
-        [0.9, 0.092, 0.097, [["thighL", 1]]],
-        [0.8, 0.084, 0.089, [["thighL", 1]]],
-        [0.7, 0.075, 0.079, [["thighL", 1]]],
-        [0.6, 0.065, 0.068, [["thighL", 1]]],
-        [0.54, 0.058, 0.06, [["thighL", 1]]],
-        [0.5, 0.056, 0.058, [["thighL", 0.45], ["shinL", 0.55]]],
-        [0.46, 0.054, 0.057, [["shinL", 1]]],
-        [0.43, 0.058, 0.063, [["shinL", 1]]],
-        [0.39, 0.057, 0.062, [["shinL", 1]]],
-        [0.31, 0.05, 0.054, [["shinL", 1]]],
-        [0.22, 0.04, 0.043, [["shinL", 1]]],
-        [0.14, 0.034, 0.036, [["shinL", 0.6], ["footL", 0.4]]],
-        [0.1, 0.034, 0.037, [["footL", 1]]],
+      limb(side, 0.168, [
+        [1.47, 0.07, 0.072, [["chest", 0.62], ["armL", 0.38]], deltoid],
+        [1.432, 0.077, 0.079, [["chest", 0.28], ["armL", 0.72]], deltoid],
+        [1.39, 0.07, 0.072, [["armL", 1]]],
+        [1.34, 0.062, 0.064, [["armL", 1]], biceps],
+        [1.3, 0.057, 0.059, [["armL", 1]], biceps],
+        [1.288, 0.061, 0.063, [["armL", 1]]],
+        [1.272, 0.05, 0.052, [["armL", 1]]],
+        [1.21, 0.046, 0.048, [["armL", 1]]],
+        [1.16, 0.043, 0.045, [["armL", 0.6], ["foreL", 0.4]]],
+        [1.12, 0.045, 0.047, [["foreL", 1]]],
+        [1.05, 0.043, 0.045, [["foreL", 1]]],
+        [0.975, 0.034, 0.036, [["foreL", 1]]],
+        [0.93, 0.03, 0.032, [["foreL", 0.5], ["handL", 0.5]]],
+        [0.892, 0.04, 0.026, [["handL", 1]], thumb],
+        [0.845, 0.041, 0.027, [["handL", 1]], palm],
+        [0.8, 0.036, 0.024, [["handL", 1]]],
+        [0.762, 0.021, 0.015, [["handL", 1]]],
+        [0.746, 0.005, 0.004, [["handL", 1]]],
       ]),
       "y",
       18,
+      regions.arm,
+      SWEEP,
+    );
+    tube(
+      build,
+      limb(side, 0.09, [
+        [0.965, 0.098, 0.103, [["hips", 0.45], ["thighL", 0.55]]],
+        [0.9, 0.094, 0.099, [["thighL", 1]], quad],
+        [0.82, 0.088, 0.093, [["thighL", 1]], quad],
+        [0.73, 0.08, 0.084, [["thighL", 1]], quad],
+        [0.64, 0.07, 0.073, [["thighL", 1]]],
+        [0.57, 0.061, 0.063, [["thighL", 1]]],
+        [0.52, 0.057, 0.059, [["thighL", 1]]],
+        [0.505, 0.056, 0.058, [["thighL", 0.45], ["shinL", 0.55]]],
+        [0.48, 0.054, 0.057, [["shinL", 1]]],
+        [0.44, 0.057, 0.062, [["shinL", 1]], calf],
+        [0.4, 0.057, 0.062, [["shinL", 1]], calf],
+        [0.34, 0.051, 0.055, [["shinL", 1]], shin],
+        [0.25, 0.042, 0.045, [["shinL", 1]], shin],
+        [0.16, 0.035, 0.037, [["shinL", 1]], shin],
+        [0.12, 0.033, 0.035, [["shinL", 0.6], ["footL", 0.4]]],
+        [0.095, 0.033, 0.036, [["footL", 1]]],
+      ]),
+      "y",
+      20,
       regions.leg,
+      SWEEP,
     );
     const foot: Weight[] = [[side > 0 ? "footL" : "footR", 1]];
     tube(
       build,
       (
         [
-          [-0.085, 0.075, 0.008, 0.008],
-          [-0.075, 0.072, 0.032, 0.03],
-          [-0.055, 0.068, 0.042, 0.045],
-          [-0.02, 0.062, 0.047, 0.05],
-          [0.03, 0.056, 0.048, 0.046],
-          [0.08, 0.048, 0.046, 0.037],
-          [0.125, 0.041, 0.038, 0.027],
-          [0.155, 0.036, 0.022, 0.016],
-          [0.168, 0.034, 0.006, 0.005],
+          [-0.09, 0.086, 0.01, 0.01],
+          [-0.08, 0.083, 0.034, 0.032],
+          [-0.06, 0.076, 0.045, 0.048],
+          [-0.025, 0.068, 0.049, 0.052],
+          [0.025, 0.06, 0.05, 0.048],
+          [0.075, 0.052, 0.048, 0.039],
+          [0.12, 0.045, 0.043, 0.029],
+          [0.155, 0.039, 0.035, 0.02],
+          [0.175, 0.035, 0.013, 0.008],
         ] as [number, number, number, number][]
       ).map(([z, cy, rx, ry]) => ({
-        c: [side * 0.085, cy, z] as [number, number, number],
+        c: [side * 0.09, cy, z] as [number, number, number],
         r: [rx, ry] as [number, number],
-        v: (z + 0.085) / 0.253,
+        v: (z + 0.09) / 0.265,
         w: foot,
-        k: 0.72,
+        k: 0.7,
       })),
       "z",
-      14,
+      16,
       regions.boot,
-      { floor: 0.014 },
+      { floor: 0.013 },
     );
   }
-  const hair: Weight[] = [["head", 1]];
+  // ---- hair ------------------------------------------------------------
+  // A closed cap whose lower front rings sit inside the skull. The hairline is
+  // therefore an intersection rather than an open rim with a visible edge.
+  const headRadius = (y: number): [number, number] => {
+    if (y <= skullRows[0][0]) return [skullRows[0][1], skullRows[0][2]];
+    for (let i = 1; i < skullRows.length; i++) {
+      const [y1, rx1, rz1] = skullRows[i];
+      if (y > y1) continue;
+      const [y0, rx0, rz0] = skullRows[i - 1];
+      const t = (y - y0) / (y1 - y0);
+      return [rx0 + (rx1 - rx0) * t, rz0 + (rz1 - rz0) * t];
+    }
+    const last = skullRows[skullRows.length - 1];
+    return [last[1], last[2]];
+  };
+  const hairRows: [number, number, number][] = [
+    [1.612, 0.86, 0.3],
+    [1.652, 0.88, 0.28],
+    [1.692, 0.9, 0.26],
+    [1.726, 0.94, 0.2],
+    [1.75, 0.99, 0.12],
+    [1.772, 1.05, 0.05],
+    [1.794, 1.07, 0.03],
+    [1.812, 1.02, 0.02],
+  ];
   tube(
     build,
-    (
-      [
-        [1.735, 0.098, 0.105],
-        [1.775, 0.095, 0.102],
-        [1.815, 0.08, 0.086],
-        [1.845, 0.05, 0.055],
-        [1.859, 0.008, 0.009],
-      ] as [number, number, number][]
-    ).map(([y, rx, rz]) => ({
-      c: [0, y, 0] as [number, number, number],
-      r: [rx, rz] as [number, number],
-      v: 0.35 + (y - 1.735) / 0.19,
-      w: hair,
-    })),
+    hairRows.map(([y, k, back]) => {
+      const [rx, rz] = headRadius(y);
+      return {
+        c: [0, y, 0] as [number, number, number],
+        r: [rx * k + 0.002, rz * k + 0.002] as [number, number],
+        v: (y - 1.612) / 0.2,
+        w: headOnly,
+        m: shaped(lobe(A_BACK, 2.4, back)),
+      };
+    }),
     "y",
-    20,
+    40,
     regions.hair,
-  );
-  tube(
-    build,
-    (
-      [
-        [1.678, 0.083, 0.089],
-        [1.706, 0.092, 0.099],
-        [1.734, 0.096, 0.103],
-        [1.752, 0.097, 0.104],
-      ] as [number, number, number][]
-    ).map(([y, rx, rz]) => ({
-      c: [0, y, 0] as [number, number, number],
-      r: [rx, rz] as [number, number],
-      v: (y - 1.678) / 0.33,
-      w: hair,
-    })),
-    "y",
-    20,
-    regions.hair,
-    { from: Math.PI * 0.32, to: Math.PI * 1.68 },
+    SWEEP,
   );
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute(
