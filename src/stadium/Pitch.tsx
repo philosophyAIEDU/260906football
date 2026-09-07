@@ -1,48 +1,41 @@
-import { useEffect, useMemo, useState } from "react";
-import { assetConfig } from "../data/assets";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-function Mark({ points }: { points: [number, number][] }) {
+import { assetConfig } from "../data/assets";
+import { grassNormal, turfMap } from "./textures";
+/** Painted markings, built as one flat ribbon mesh per group of segments. */
+function Mark({ points, width = 0.06 }: { points: [number, number][]; width?: number }) {
   const geometry = useMemo(() => {
     const vertices: number[] = [];
     for (let i = 0; i < points.length; i += 2) {
       const [ax, az] = points[i],
         [bx, bz] = points[i + 1];
       const length = Math.hypot(bx - ax, bz - az) || 1;
-      const dx = (-(bz - az) / length) * 0.055,
-        dz = ((bx - ax) / length) * 0.055;
+      const dx = (-(bz - az) / length) * width,
+        dz = ((bx - ax) / length) * width;
       vertices.push(
-        ax + dx,
-        0.018,
-        az + dz,
-        bx + dx,
-        0.018,
-        bz + dz,
-        ax - dx,
-        0.018,
-        az - dz,
-        ax - dx,
-        0.018,
-        az - dz,
-        bx + dx,
-        0.018,
-        bz + dz,
-        bx - dx,
-        0.018,
-        bz - dz,
+        ax + dx, 0.016, az + dz,
+        bx + dx, 0.016, bz + dz,
+        ax - dx, 0.016, az - dz,
+        ax - dx, 0.016, az - dz,
+        bx + dx, 0.016, bz + dz,
+        bx - dx, 0.016, bz - dz,
       );
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
     g.computeVertexNormals();
     return g;
-  }, [points]);
+  }, [points, width]);
   useEffect(() => () => geometry.dispose(), [geometry]);
   return (
     <mesh geometry={geometry} receiveShadow>
       <meshStandardMaterial
-        color="#f1f0da"
-        roughness={1}
+        color="#f4f6ec"
+        roughness={0.85}
         side={THREE.DoubleSide}
+        polygonOffset
+        polygonOffsetFactor={-2}
       />
     </mesh>
   );
@@ -53,14 +46,10 @@ const rectangle = (
   w: number,
   h: number,
 ): [number, number][] => [
-  [x, z],
-  [x + w, z],
-  [x + w, z],
-  [x + w, z + h],
-  [x + w, z + h],
-  [x, z + h],
-  [x, z + h],
-  [x, z],
+  [x, z], [x + w, z],
+  [x + w, z], [x + w, z + h],
+  [x + w, z + h], [x, z + h],
+  [x, z + h], [x, z],
 ];
 function Arc({
   x = 0,
@@ -75,16 +64,51 @@ function Arc({
   start?: number;
   end?: number;
 }) {
-  const points: [number, number][] = [];
-  for (let i = 0; i < 64; i++) {
-    const a = start + ((end - start) * i) / 64,
-      b = start + ((end - start) * (i + 1)) / 64;
-    points.push(
-      [x + Math.cos(a) * r, z + Math.sin(a) * r],
-      [x + Math.cos(b) * r, z + Math.sin(b) * r],
-    );
-  }
+  const points = useMemo(() => {
+    const list: [number, number][] = [];
+    for (let i = 0; i < 72; i++) {
+      const a = start + ((end - start) * i) / 72,
+        b = start + ((end - start) * (i + 1)) / 72;
+      list.push(
+        [x + Math.cos(a) * r, z + Math.sin(a) * r],
+        [x + Math.cos(b) * r, z + Math.sin(b) * r],
+      );
+    }
+    return list;
+  }, [x, z, r, start, end]);
   return <Mark points={points} />;
+}
+/** Corner flag with a cloth that answers to the wind. */
+function CornerFlag({ x, z, color }: { x: number; z: number; color: string }) {
+  const cloth = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    if (!cloth.current) return;
+    const t = clock.elapsedTime * 2.4 + x + z;
+    cloth.current.rotation.y = Math.sin(t) * 0.22;
+    cloth.current.rotation.z = Math.sin(t * 1.7) * 0.1;
+  });
+  return (
+    <group position={[x, 0, z]}>
+      <mesh castShadow position={[0, 0.75, 0]}>
+        <cylinderGeometry args={[0.022, 0.026, 1.5, 8]} />
+        <meshStandardMaterial color="#eef1e6" roughness={0.5} />
+      </mesh>
+      <mesh position={[0, 1.51, 0]}>
+        <sphereGeometry args={[0.035, 10, 8]} />
+        <meshStandardMaterial color="#eef1e6" roughness={0.4} />
+      </mesh>
+      <group ref={cloth} position={[0, 1.32, 0]}>
+        <mesh castShadow position={[0.16, 0, 0]}>
+          <planeGeometry args={[0.32, 0.24, 4, 2]} />
+          <meshStandardMaterial
+            color={color}
+            roughness={0.9}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      </group>
+    </group>
+  );
 }
 export function Pitch() {
   const [custom, setCustom] = useState<THREE.Texture | null>(null);
@@ -110,84 +134,35 @@ export function Pitch() {
       loaded?.dispose();
     };
   }, []);
-  const texture = useMemo(() => {
-    const canvas = document.createElement("canvas");
-    canvas.width = canvas.height = 1024;
-    const ctx = canvas.getContext("2d")!;
-    ctx.fillStyle = "#66952c";
-    ctx.fillRect(0, 0, 1024, 1024);
-    let seed = 3187;
-    const random = () => {
-      seed = (seed * 16807) % 2147483647;
-      return seed / 2147483647;
-    };
-    for (let i = 0; i < 240000; i++) {
-      const x = random() * 1024,
-        y = random() * 1024;
-      const shade = random();
-      ctx.strokeStyle =
-        shade > 0.5
-          ? `rgba(166,191,73,${0.1 + random() * 0.22})`
-          : `rgba(38,76,16,${0.12 + random() * 0.25})`;
-      ctx.lineWidth = 0.5 + random();
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x + (random() - 0.5) * 3, y - 1 - random() * 5);
-      ctx.stroke();
-    }
-    for (let i = 0; i < 200; i++) {
-      const x = random() * 1024,
-        y = random() * 1024,
-        r = 8 + random() * 35;
-      const gradient = ctx.createRadialGradient(x, y, 0, x, y, r);
-      gradient.addColorStop(0, "rgba(184,173,72,.045)");
-      gradient.addColorStop(1, "rgba(184,173,72,0)");
-      ctx.fillStyle = gradient;
-      ctx.fillRect(x - r, y - r, r * 2, r * 2);
-    }
-    const t = new THREE.CanvasTexture(canvas);
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.repeat.set(16, 10);
-    t.anisotropy = 8;
-    t.colorSpace = THREE.SRGBColorSpace;
-    return t;
+  const relief = useMemo(() => {
+    const map = grassNormal().clone();
+    map.needsUpdate = true;
+    map.wrapS = map.wrapT = THREE.RepeatWrapping;
+    map.repeat.set(52, 34);
+    return map;
   }, []);
-  useEffect(() => () => texture.dispose(), [texture]);
+  useEffect(() => () => relief.dispose(), [relief]);
   return (
     <group>
-      <mesh
-        receiveShadow
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -0.025, 0]}
-      >
-        <planeGeometry args={[132, 94]} />
-        <meshStandardMaterial color="#497a29" roughness={1} />
+      {/* Concourse concrete, then the mown run-off, then the pitch itself. */}
+      <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.07, 0]}>
+        <planeGeometry args={[220, 180]} />
+        <meshStandardMaterial color="#6b757a" roughness={0.98} />
+      </mesh>
+      <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.03, 0]}>
+        <planeGeometry args={[117, 80]} />
+        <meshStandardMaterial color="#3f7524" roughness={1} />
       </mesh>
       <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[105, 68]} />
         <meshStandardMaterial
-          map={custom ?? texture}
-          bumpMap={custom ?? texture}
-          bumpScale={0.025}
-          roughness={0.96}
+          map={custom ?? turfMap()}
+          normalMap={relief}
+          normalScale={new THREE.Vector2(0.6, 0.6)}
+          roughness={0.94}
+          metalness={0}
         />
       </mesh>
-      {Array.from({ length: 10 }, (_, i) => (
-        <mesh
-          key={i}
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[-49.875 + i * 10.5, 0.005, 0]}
-          receiveShadow
-        >
-          <planeGeometry args={[5.25, 68]} />
-          <meshStandardMaterial
-            color="#b3c756"
-            transparent
-            opacity={0.09}
-            roughness={1}
-          />
-        </mesh>
-      ))}
       <Mark points={[...rectangle(-52.5, -34, 105, 68), [0, -34], [0, 34]]} />
       <Arc />
       {[-1, 1].map((s) => (
@@ -199,9 +174,9 @@ export function Pitch() {
             start={s < 0 ? -1 : Math.PI - 1}
             end={s < 0 ? 1 : Math.PI + 1}
           />
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[s * 41.5, 0.03, 0]}>
-            <circleGeometry args={[0.16, 12]} />
-            <meshBasicMaterial color="white" />
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[s * 41.5, 0.018, 0]}>
+            <circleGeometry args={[0.13, 16]} />
+            <meshStandardMaterial color="#f4f6ec" roughness={0.85} />
           </mesh>
           {[-1, 1].map((z) => (
             <group key={z}>
@@ -209,40 +184,21 @@ export function Pitch() {
                 x={s * 52.5}
                 z={z * 34}
                 r={1}
-                start={
-                  s < 0
-                    ? z < 0
-                      ? 0
-                      : -Math.PI / 2
-                    : z < 0
-                      ? Math.PI / 2
-                      : Math.PI
-                }
-                end={
-                  s < 0
-                    ? z < 0
-                      ? Math.PI / 2
-                      : 0
-                    : z < 0
-                      ? Math.PI
-                      : Math.PI * 1.5
-                }
+                start={s < 0 ? (z < 0 ? 0 : -Math.PI / 2) : z < 0 ? Math.PI / 2 : Math.PI}
+                end={s < 0 ? (z < 0 ? Math.PI / 2 : 0) : z < 0 ? Math.PI : Math.PI * 1.5}
               />
-              <mesh position={[s * 52.5, 0.85, z * 34]}>
-                <cylinderGeometry args={[0.035, 0.035, 1.7, 6]} />
-                <meshStandardMaterial color="#f5f5e0" />
-              </mesh>
-              <mesh position={[s * 52.5 + 0.22, 1.55, z * 34]}>
-                <boxGeometry args={[0.45, 0.3, 0.025]} />
-                <meshStandardMaterial color="#ffdd57" />
-              </mesh>
+              <CornerFlag
+                x={s * 52.5}
+                z={z * 34}
+                color={z < 0 ? "#f4d13d" : "#e8442f"}
+              />
             </group>
           ))}
         </group>
       ))}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
-        <circleGeometry args={[0.16, 12]} />
-        <meshBasicMaterial color="white" />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.018, 0]}>
+        <circleGeometry args={[0.13, 16]} />
+        <meshStandardMaterial color="#f4f6ec" roughness={0.85} />
       </mesh>
     </group>
   );
